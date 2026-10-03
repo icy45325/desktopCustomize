@@ -56,3 +56,9 @@ export QT_QPA_PLATFORM=offscreen CHATDEMO_DATA_DIR=$(mktemp -d)
 已自动覆盖的验收用例：1、3、4、5（用 `setComposing` 模拟组合态）、6/9（最小化窗口的未读与通知）、10、12。
 **需要真机手动验证**：用例 2（滚动锚点，离屏没有真实滚动）、7（点击通知前置窗口）、8（key 窗口可见时不通知，需要真实焦点）、11（外接屏）、真实输入法组合。
 截图：`CHATDEMO_SHOT=/tmp/a.png` 配合 `--selftest` 会保存主窗口截图。
+
+## 截图（offscreen 自测中抓取）
+
+| 主窗口 | 拆出后的主窗口空态 | 独立窗口（草稿 + 引用 + 新消息分隔线） |
+|---|---|---|
+| ![](docs/shot.main.png) | ![](docs/shot.ghost.png) | ![](docs/shot.detached.png) |

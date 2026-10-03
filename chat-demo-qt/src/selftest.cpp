@@ -124,6 +124,14 @@ void phase1()
     check(notified == 1, "发出系统通知请求");
     check(!ui->state(c).value("unreadDividerMsgId").toString().isEmpty(), "写入「新消息」分隔线");
     QObject::disconnect(conn);
+    if (const QString shot = qEnvironmentVariable("CHATDEMO_SHOT"); !shot.isEmpty()) {
+        wm->windowFor(c)->showNormal();
+        wait(300);
+        QMetaObject::invokeMethod(findItem(wm->windowFor(c), "messageList"), "positionViewAtEnd");   // 像用户一样滚到底看新消息
+        wait(300);
+        wm->windowFor(c)->grabWindow().save(shot + ".detached.png");   // 独立窗口：草稿 + 引用 + 新消息分隔线
+        wm->mainWindow()->grabWindow().save(shot + ".ghost.png");      // 主窗口：「已在独立窗口打开」空态
+    }
 
     // 合并回主窗口
     wm->windowFor(c)->showNormal();
