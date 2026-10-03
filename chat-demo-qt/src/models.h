@@ -43,6 +43,7 @@ public:
     Q_INVOKABLE QString idAt(int row) const;
     Q_INVOKABLE int indexOfId(const QString &id) const;
     Q_INVOKABLE QString previewOf(const QString &id) const;
+    Q_INVOKABLE QDateTime sentAtAt(int row) const;
 
 signals:
     void countChanged();

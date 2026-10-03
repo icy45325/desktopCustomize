@@ -5,12 +5,14 @@ import ChatDemo
 
 ApplicationWindow {
     id: win
-    width: 900
-    height: 640
-    minimumWidth: 700
-    minimumHeight: 420
+    width: 960
+    height: 660
+    minimumWidth: 720
+    minimumHeight: 440
     visible: true
+    color: Theme.windowBg
     title: "Chat" + (ChatStore.totalUnread > 0 ? " (" + ChatStore.totalUnread + ")" : "")
+    font.pixelSize: Theme.fontBody
 
     Component.onCompleted: {
         var g = WindowManager.savedGeometry("main")
@@ -50,10 +52,10 @@ ApplicationWindow {
         spacing: 0
 
         ConversationList {
-            Layout.preferredWidth: 260
+            Layout.preferredWidth: 280
             Layout.fillHeight: true
         }
-        Rectangle { Layout.fillHeight: true; implicitWidth: 1; color: "#d0d0d0" }
+        Rectangle { Layout.fillHeight: true; implicitWidth: 1; color: Theme.separator }
 
         Item {
             id: detail
@@ -71,19 +73,27 @@ ApplicationWindow {
                 }
             }
 
+            // 空态：已拆出
+            Column {
+                anchors.centerIn: parent
+                spacing: 12
+                visible: WindowManager.mainSelection === "" && WindowManager.ghost !== ""
+                         && WindowManager.placementOf(WindowManager.ghost) === "detached"
+                Text { text: "⧉"; font.pixelSize: 44; color: Theme.separator; anchors.horizontalCenter: parent.horizontalCenter }
+                Text {
+                    text: "「" + ChatStore.title(WindowManager.ghost) + "」已在独立窗口打开"
+                    color: Theme.textSecondary; font.pixelSize: Theme.fontBody
+                    anchors.horizontalCenter: parent.horizontalCenter
+                }
+                MacButton { text: "前往该窗口"; anchors.horizontalCenter: parent.horizontalCenter; onClicked: WindowManager.select(WindowManager.ghost) }
+            }
+            // 空态：未选择
             Column {
                 anchors.centerIn: parent
                 spacing: 8
-                visible: WindowManager.mainSelection === "" && WindowManager.ghost !== ""
-                         && WindowManager.placementOf(WindowManager.ghost) === "detached"
-                Label { text: "该会话已在独立窗口打开"; color: "#808080"; anchors.horizontalCenter: parent.horizontalCenter }
-                Button { text: "跳转到该窗口"; onClicked: WindowManager.select(WindowManager.ghost) }
-            }
-            Label {
-                anchors.centerIn: parent
-                color: "#808080"
-                text: "选择一个会话"
                 visible: WindowManager.mainSelection === "" && WindowManager.ghost === ""
+                Text { text: "💬"; font.pixelSize: 40; anchors.horizontalCenter: parent.horizontalCenter; opacity: 0.35 }
+                Text { text: "选择一个会话开始聊天"; color: Theme.textSecondary; anchors.horizontalCenter: parent.horizontalCenter }
             }
         }
     }

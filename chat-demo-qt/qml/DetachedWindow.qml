@@ -10,7 +10,9 @@ ApplicationWindow {
     height: 640
     minimumWidth: 360
     minimumHeight: 360
+    color: Theme.windowBg
     title: ChatStore.title(convId)
+    font.pixelSize: Theme.fontBody
 
     ChatView {
         anchors.fill: parent

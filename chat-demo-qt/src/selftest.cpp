@@ -70,7 +70,7 @@ void phase1()
     check(wm->placementOf(c) == "main" && wm->mainSelection() == c, "select: 会话在主窗口打开");
 
     if (const QString shot = qEnvironmentVariable("CHATDEMO_SHOT"); !shot.isEmpty()) {
-        wm->mainWindow()->grabWindow().save(shot);   // 可选：截图便于肉眼检查布局
+        wm->mainWindow()->grabWindow().save(shot + ".main.png");   // 可选：截图便于肉眼检查布局
     }
     // 用例 1：草稿 + 光标
     QQuickItem *in = draftInput(wm->mainWindow());
@@ -125,17 +125,27 @@ void phase1()
     check(!ui->state(c).value("unreadDividerMsgId").toString().isEmpty(), "写入「新消息」分隔线");
     QObject::disconnect(conn);
     if (const QString shot = qEnvironmentVariable("CHATDEMO_SHOT"); !shot.isEmpty()) {
-        wm->windowFor(c)->showNormal();
-        wait(300);
-        QMetaObject::invokeMethod(findItem(wm->windowFor(c), "messageList"), "positionViewAtEnd");   // 像用户一样滚到底看新消息
-        wait(300);
-        wm->windowFor(c)->grabWindow().save(shot + ".detached.png");   // 独立窗口：草稿 + 引用 + 新消息分隔线
-        wm->mainWindow()->grabWindow().save(shot + ".ghost.png");      // 主窗口：「已在独立窗口打开」空态
+        wm->mainWindow()->grabWindow().save(shot + ".ghost.png");      // 主窗口：空态 + 侧栏未读角标
     }
 
-    // 合并回主窗口
+    // 窗口恢复可见后：自动滚到「新消息」分隔线
     wm->windowFor(c)->showNormal();
-    wait(200);
+    wm->windowFor(c)->requestActivate();
+    wait(500);
+    {
+        QQuickItem *lv = findItem(wm->windowFor(c), "messageList");
+        QQuickItem *cv1 = findItem(wm->windowFor(c), "chatView");
+        QVariant divIdx;
+        QMetaObject::invokeMethod(cv1, "dividerIndex", Q_RETURN_ARG(QVariant, divIdx));
+        QVariant first;
+        QMetaObject::invokeMethod(lv, "indexAt", Q_RETURN_ARG(QVariant, first),
+                                  Q_ARG(QVariant, 10.0), Q_ARG(QVariant, lv->property("contentY").toReal() + 4));
+        const int d = divIdx.toInt(), f = first.toInt();
+        const bool visible = lv->property("atYEnd").toBool() || (f >= 0 && d >= f && d <= f + 3);
+        check(d >= 0 && visible, "窗口恢复后自动滚到「新消息」分隔线");
+        if (const QString shot = qEnvironmentVariable("CHATDEMO_SHOT"); !shot.isEmpty())
+            wm->windowFor(c)->grabWindow().save(shot + ".detached.png");   // 独立窗口：草稿 + 引用 + 新消息分隔线
+    }
     wm->attach(c);
     wait(400);
     check(wm->detachedWindowCount() == 0 && wm->placementOf(c) == "main" && wm->mainSelection() == c, "合并：窗口关闭，会话回到主窗口");

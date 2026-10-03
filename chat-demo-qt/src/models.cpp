@@ -65,3 +65,8 @@ QString MessageModel::previewOf(const QString &id) const
     const int i = indexOfId(id);
     return i < 0 ? QString() : m_items.at(i).sender + QStringLiteral("：") + m_items.at(i).text;
 }
+
+QDateTime MessageModel::sentAtAt(int row) const
+{
+    return row >= 0 && row < m_items.size() ? m_items.at(row).sentAt : QDateTime();
+}

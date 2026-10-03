@@ -34,6 +34,7 @@ cmake --build build -j
 | `src/mockserver.*` `src/notifier.*` | 每 3～8 秒随机推消息；`QSystemTrayIcon::showMessage`（无托盘时降级为日志） |
 | `qml/ChatView.qml` | 主窗口与独立窗口共用的会话视图：挂载时恢复、变化时经租约写回 |
 | `qml/Main.qml` `ConversationList.qml` `DetachedWindow.qml` | 容器与列表（拖出检测、右键菜单、快捷键） |
+| `qml/Theme.qml` `MacButton.qml` | macOS 风格色板（Messages 配色）与工具栏按钮 |
 
 ## 与 SwiftUI 版的差异
 
@@ -45,7 +46,7 @@ cmake --build build -j
 
 ## 无头自测
 
-`--selftest` 用真实的 QML 视图 + WindowManager 在 offscreen 平台跑一遍核心用例（共 27 项断言）：
+`--selftest` 用真实的 QML 视图 + WindowManager 在 offscreen 平台跑一遍核心用例（共 28 项断言）：
 
 ```bash
 export QT_QPA_PLATFORM=offscreen CHATDEMO_DATA_DIR=$(mktemp -d)
@@ -53,7 +54,7 @@ export QT_QPA_PLATFORM=offscreen CHATDEMO_DATA_DIR=$(mktemp -d)
 ./build/bin/ChatDemo --selftest --phase2   # phase 2：重启后恢复独立窗口与草稿
 ```
 
-已自动覆盖的验收用例：1、3、4、5（用 `setComposing` 模拟组合态）、6/9（最小化窗口的未读与通知）、10、12。
+已自动覆盖的验收用例：1、3、4、5、窗口恢复后自动滚到「新消息」分隔线（用 `setComposing` 模拟组合态）、6/9（最小化窗口的未读与通知）、10、12。
 **需要真机手动验证**：用例 2（滚动锚点，离屏没有真实滚动）、7（点击通知前置窗口）、8（key 窗口可见时不通知，需要真实焦点）、11（外接屏）、真实输入法组合。
 截图：`CHATDEMO_SHOT=/tmp/a.png` 配合 `--selftest` 会保存主窗口截图。
 

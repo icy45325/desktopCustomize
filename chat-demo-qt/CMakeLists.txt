@@ -9,6 +9,8 @@ qt_standard_project_setup()
 
 qt_add_executable(ChatDemo src/main.cpp)
 
+set_source_files_properties(qml/Theme.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
+
 qt_add_qml_module(ChatDemo
     URI ChatDemo
     VERSION 1.0
@@ -27,6 +29,8 @@ qt_add_qml_module(ChatDemo
         qml/ConversationList.qml
         qml/ChatView.qml
         qml/DetachedWindow.qml
+        qml/Theme.qml
+        qml/MacButton.qml
 )
 
 target_link_libraries(ChatDemo PRIVATE

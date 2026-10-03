@@ -3,12 +3,26 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import ChatDemo
 
-Item {
+// 侧栏：参考 macOS Messages / Mail —— 浅灰底、选中项蓝底白字、右上角时间
+Rectangle {
+    color: Theme.sidebarBg
+
+    Text {
+        id: header
+        anchors { top: parent.top; left: parent.left; right: parent.right; margins: 16; topMargin: 14 }
+        text: "消息"
+        font.pixelSize: 22
+        font.bold: true
+        color: Theme.textPrimary
+    }
+
     ListView {
         id: list
-        anchors { top: parent.top; left: parent.left; right: parent.right; bottom: footer.top }
+        anchors { top: header.bottom; topMargin: 10; left: parent.left; right: parent.right; bottom: footer.top }
         clip: true
         model: ChatStore
+        spacing: 2
+        leftMargin: 8; rightMargin: 8
 
         delegate: Rectangle {
             id: del
@@ -17,36 +31,77 @@ Item {
             required property string lastText
             required property int unread
             required property string placement
+            readonly property bool selected: WindowManager.mainSelection === convId
 
-            width: ListView.view.width
-            height: 56
-            color: WindowManager.mainSelection === convId ? "#302a7fff" : (ma.containsMouse ? "#10000000" : "transparent")
+            width: ListView.view.width - 16
+            height: 60
+            radius: 8
+            color: selected ? Theme.accent : (ma.containsMouse ? Theme.sidebarHover : "transparent")
 
-            RowLayout {
-                anchors { fill: parent; leftMargin: 12; rightMargin: 12 }
-                ColumnLayout {
+            // 头像：首字 + 柔和配色
+            Rectangle {
+                id: avatar
+                anchors { left: parent.left; leftMargin: 10; verticalCenter: parent.verticalCenter }
+                width: 40; height: 40; radius: 20
+                color: ["#5AC8FA", "#FF9F0A", "#34C759", "#AF52DE", "#FF2D55"][del.convId.charCodeAt(del.convId.length - 1) % 5]
+                Text {
+                    anchors.centerIn: parent
+                    text: del.title.charAt(0)
+                    color: "white"; font.pixelSize: 17; font.bold: true
+                }
+            }
+
+            ColumnLayout {
+                anchors { left: avatar.right; leftMargin: 10; right: badgeArea.left; rightMargin: 8; verticalCenter: parent.verticalCenter }
+                spacing: 3
+                RowLayout {
                     Layout.fillWidth: true
-                    spacing: 2
-                    RowLayout {
-                        spacing: 4
-                        Label { text: del.title; font.bold: true }
-                        Label { visible: del.placement === "detached"; text: "⧉"; color: "#808080" }
-                    }
-                    Label {
-                        Layout.fillWidth: true
-                        text: del.lastText
+                    spacing: 4
+                    Text {
+                        text: del.title
+                        font.pixelSize: Theme.fontBody; font.bold: true
+                        color: del.selected ? Theme.textOnAccent : Theme.textPrimary
                         elide: Text.ElideRight
-                        color: "#808080"
+                        Layout.fillWidth: true
+                    }
+                    Text {
+                        visible: del.placement === "detached"
+                        text: "⧉"
                         font.pixelSize: 12
+                        color: del.selected ? Theme.textOnAccent : Theme.textSecondary
+                        opacity: 0.8
                     }
                 }
+                Text {
+                    Layout.fillWidth: true
+                    text: del.lastText
+                    elide: Text.ElideRight
+                    color: del.selected ? Theme.textOnAccent : Theme.textSecondary
+                    opacity: del.selected ? 0.9 : 1
+                    font.pixelSize: 12
+                }
+            }
+
+            Item {
+                id: badgeArea
+                anchors { right: parent.right; rightMargin: 10; verticalCenter: parent.verticalCenter }
+                width: badge.visible ? badge.width : 0
+                height: 20
                 Rectangle {
+                    id: badge
                     visible: del.unread > 0
-                    color: "#e53935"
-                    radius: 9
-                    implicitWidth: Math.max(18, badge.implicitWidth + 10)
-                    implicitHeight: 18
-                    Label { id: badge; anchors.centerIn: parent; text: del.unread; color: "white"; font.pixelSize: 11 }
+                    anchors.centerIn: parent
+                    color: del.selected ? Theme.textOnAccent : Theme.badge
+                    radius: 10
+                    width: Math.max(20, badgeText.implicitWidth + 12)
+                    height: 20
+                    Text {
+                        id: badgeText
+                        anchors.centerIn: parent
+                        text: del.unread
+                        color: del.selected ? Theme.accent : "white"
+                        font.pixelSize: 11; font.bold: true
+                    }
                 }
             }
 
@@ -79,13 +134,14 @@ Item {
         }
     }
 
-    Rectangle { id: sep; anchors { left: parent.left; right: parent.right; bottom: footer.top } height: 1; color: "#d0d0d0" }
-    Label {
+    Rectangle { anchors { left: parent.left; right: parent.right; bottom: footer.top } height: 1; color: Theme.separatorLight }
+    Text {
         id: footer
         anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
-        padding: 8
-        text: "总未读：" + ChatStore.totalUnread
-        color: "#808080"
-        font.pixelSize: 12
+        padding: 10
+        text: ChatStore.totalUnread > 0 ? ChatStore.totalUnread + " 条未读" : "没有未读消息"
+        color: Theme.textSecondary
+        font.pixelSize: 11
+        horizontalAlignment: Text.AlignHCenter
     }
 }
