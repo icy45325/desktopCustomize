@@ -4,7 +4,7 @@ import QtQuick.Layouts
 import ChatDemo
 
 // 纯视图：挂载时从 UIStateStore 恢复，变化时经租约写回。主窗口和独立窗口复用同一个实现。
-// 外观参考 macOS Messages：蓝色/浅灰气泡、圆角输入框、圆形发送键。
+// 外观：方案 C 的结构（头像 + 气泡 + 胶囊输入条）叠加方案 B 的用色（单一强调色、按人着色的名字、dark 下发光）。
 Item {
     id: root
     objectName: "chatView"
@@ -115,6 +115,7 @@ Item {
         draftTimer.stop()
         input.text = ""
         write({ draftText: "", draftSelStart: 0, draftSelEnd: 0, replyToMsgId: "", atBottom: true })
+        sendPulse.restart()
         Qt.callLater(list.positionViewAtEnd)
     }
 
@@ -141,34 +142,40 @@ Item {
         anchors.fill: parent
         spacing: 0
 
-        // 标题栏：居中标题 + 右侧工具按钮（macOS 工具栏样式）
-        Rectangle {
+        // 标题栏：头像 + 标题/成员 + 右侧胶囊按钮
+        Item {
             Layout.fillWidth: true
-            implicitHeight: 52
-            color: "#FAFAFA"
-            Column {
-                anchors.centerIn: parent
-                spacing: 1
-                Text {
-                    text: ChatStore.title(root.convId)
-                    font.pixelSize: Theme.fontTitle; font.bold: true
-                    color: Theme.textPrimary
-                    anchors.horizontalCenter: parent.horizontalCenter
+            implicitHeight: 60
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 18; anchors.rightMargin: 14
+                spacing: 12
+                Avatar { name: ChatStore.title(root.convId); size: 36 }
+                ColumnLayout {
+                    spacing: 1
+                    Text {
+                        text: ChatStore.title(root.convId)
+                        font.pixelSize: Theme.fontTitle; font.bold: true
+                        color: Theme.text
+                        Behavior on color { ColorAnimation { duration: 260 } }
+                    }
+                    Text {
+                        text: root.msgs ? root.msgs.count + " 条消息" : ""
+                        font.pixelSize: Theme.fontSmall
+                        color: Theme.textTertiary
+                    }
                 }
-                Text {
-                    text: root.msgs ? root.msgs.count + " 条消息" : ""
-                    font.pixelSize: Theme.fontSmall
-                    color: Theme.textSecondary
-                    anchors.horizontalCenter: parent.horizontalCenter
+                Item { Layout.fillWidth: true }
+                MacButton {
+                    objectName: "moveButton"
+                    text: root.detached ? "⇲ 合并到主窗口" : "⧉ 拆出窗口"
+                    onClicked: root.detached ? WindowManager.attach(root.convId) : WindowManager.detach(root.convId)
                 }
             }
-            MacButton {
-                objectName: "moveButton"
-                anchors { right: parent.right; rightMargin: 12; verticalCenter: parent.verticalCenter }
-                text: root.detached ? "⇲ 合并到主窗口" : "⧉ 新窗口"
-                onClicked: root.detached ? WindowManager.attach(root.convId) : WindowManager.detach(root.convId)
+            Rectangle {
+                anchors { left: parent.left; right: parent.right; bottom: parent.bottom; leftMargin: 18; rightMargin: 18 }
+                height: 1; color: Theme.surface
             }
-            Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.separatorLight }
         }
 
         ListView {
@@ -177,13 +184,19 @@ Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
-            spacing: 6
-            leftMargin: 16; rightMargin: 16; topMargin: 12; bottomMargin: 12
+            spacing: 10
+            leftMargin: 18; rightMargin: 18; topMargin: 12; bottomMargin: 12
             model: root.msgs
             boundsBehavior: Flickable.StopAtBounds
             ScrollBar.vertical: ScrollBar {
                 policy: ScrollBar.AsNeeded
-                contentItem: Rectangle { implicitWidth: 6; radius: 3; color: "#60000000"; opacity: parent.active ? 1 : 0.4 }
+                contentItem: Rectangle { implicitWidth: 6; radius: 3; color: Theme.textTertiary; opacity: parent.active ? 0.6 : 0.25 }
+            }
+
+            // 新消息上浮进入
+            add: Transition {
+                NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 320; easing.type: Easing.OutCubic }
+                NumberAnimation { property: "y"; from: list.contentY + list.height; duration: 380; easing.type: Easing.OutCubic }
             }
 
             property bool wasAtEnd: false
@@ -209,69 +222,95 @@ Item {
                 required property string replyText
                 required property date sentAt
 
-                width: ListView.view.width - 32
+                width: ListView.view.width - 36
                 spacing: 4
                 readonly property real maxBubble: Math.min(width * 0.68, 520)
+                readonly property bool isNew: root.st.unreadDividerMsgId !== "" && index >= root.dividerIndex()
 
-                // 打开会话时确定的「新消息」分隔线，之后不变
+                // 打开会话时确定的「新消息」分隔线，之后不变：渐变胶囊（方案 C）+ dark 下虚线（方案 B）
                 Item {
                     visible: row.msgId === root.st.unreadDividerMsgId
                     width: parent.width
-                    height: visible ? 28 : 0
-                    Rectangle { anchors.verticalCenter: parent.verticalCenter; width: parent.width; height: 1; color: Theme.separatorLight }
+                    height: visible ? 30 : 0
+                    Rectangle { anchors.verticalCenter: parent.verticalCenter; width: parent.width; height: 2; radius: 1; color: Theme.surface }
                     Rectangle {
                         anchors.centerIn: parent
-                        width: dividerText.implicitWidth + 20; height: 20; radius: 10
-                        color: Theme.windowBg; border.color: Theme.separatorLight
-                        Text { id: dividerText; anchors.centerIn: parent; text: "新消息"; font.pixelSize: Theme.fontSmall; color: Theme.accent }
+                        width: dividerText.implicitWidth + 24; height: 22; radius: 11
+                        gradient: Gradient {
+                            orientation: Gradient.Horizontal
+                            GradientStop { position: 0; color: Theme.accent }
+                            GradientStop { position: 1; color: Theme.accentSecondary }
+                        }
+                        Rectangle { anchors.fill: parent; anchors.margins: -3; radius: height / 2; color: Theme.accentGlow; opacity: 0.5; z: -1 }
+                        Text {
+                            id: dividerText
+                            anchors.centerIn: parent
+                            text: (root.msgs.count - root.dividerIndex()) + " 条新消息 ↓"
+                            font.pixelSize: Theme.fontSmall; font.bold: true
+                            color: Theme.onAccent
+                        }
                     }
                 }
 
-                // 时间戳：与上一条相隔 ≥ 10 分钟时显示（Messages 风格）
-                Text {
+                // 时间戳：与上一条相隔 ≥ 10 分钟时显示
+                Item {
                     visible: {
                         if (row.index === 0) return true
                         var prev = root.msgs.sentAtAt(row.index - 1)
                         return (row.sentAt - prev) >= 10 * 60 * 1000
                     }
                     width: parent.width
-                    height: visible ? implicitHeight + 6 : 0
-                    horizontalAlignment: Text.AlignHCenter
-                    text: Qt.formatTime(row.sentAt, "HH:mm")
-                    font.pixelSize: Theme.fontSmall
-                    color: Theme.textSecondary
+                    height: visible ? 24 : 0
+                    Rectangle {
+                        anchors.centerIn: parent
+                        width: stamp.implicitWidth + 20; height: 20; radius: 10
+                        color: Theme.surface
+                        Text { id: stamp; anchors.centerIn: parent; text: Qt.formatTime(row.sentAt, "HH:mm"); font.pixelSize: Theme.fontSmall; color: Theme.textTertiary }
+                    }
                 }
 
+                // 消息行：头像 + 名字 + 引用 + 气泡
                 Item {
                     width: parent.width
-                    implicitHeight: col.implicitHeight
+                    implicitHeight: Math.max(col.implicitHeight, row.isMine ? 0 : 28)
+
+                    Avatar {
+                        id: av
+                        visible: !row.isMine
+                        name: row.sender
+                        size: 28
+                        anchors.left: parent.left
+                        anchors.bottom: parent.bottom
+                    }
 
                     Column {
                         id: col
                         spacing: 3
                         anchors.right: row.isMine ? parent.right : undefined
-                        anchors.left: row.isMine ? undefined : parent.left
+                        anchors.left: row.isMine ? undefined : av.right
+                        anchors.leftMargin: row.isMine ? 0 : 8
 
                         Text {
                             visible: !row.isMine
                             text: row.sender
-                            color: Theme.textSecondary
-                            font.pixelSize: Theme.fontSmall
-                            leftPadding: 12
+                            color: Theme.senderColor(row.sender)
+                            font.pixelSize: Theme.fontSmall; font.bold: true
+                            leftPadding: 4
+                            Behavior on color { ColorAnimation { duration: 260 } }
                         }
                         // 引用块
                         Rectangle {
                             visible: row.replyText !== ""
                             radius: 10
-                            color: Theme.quoteBg
-                            width: Math.min(quote.implicitWidth, row.maxBubble - 20) + 20
+                            color: Theme.surface
+                            width: Math.min(quote.implicitWidth, row.maxBubble - 22) + 22
                             height: quote.implicitHeight + 12
                             anchors.right: row.isMine ? parent.right : undefined
                             Rectangle { x: 0; y: 6; width: 3; height: parent.height - 12; radius: 1.5; color: Theme.accent }
                             Text {
                                 id: quote
-                                x: 10; y: 6
-                                width: Math.min(implicitWidth, row.maxBubble - 20)
+                                x: 12; y: 6
+                                width: Math.min(implicitWidth, row.maxBubble - 22)
                                 text: row.replyText
                                 elide: Text.ElideRight
                                 font.pixelSize: Theme.fontSmall
@@ -279,21 +318,38 @@ Item {
                             }
                         }
                         // 气泡
-                        Rectangle {
-                            radius: Theme.radiusBubble
-                            color: row.isMine ? Theme.bubbleMine : Theme.bubbleOther
-                            width: Math.min(bubbleText.implicitWidth, row.maxBubble - 28) + 28
-                            height: bubbleText.height + 18
+                        Item {
+                            width: bubble.width; height: bubble.height
                             anchors.right: row.isMine ? parent.right : undefined
-                            Text {
-                                id: bubbleText
-                                x: 14; y: 9
-                                width: Math.min(implicitWidth, row.maxBubble - 28)
-                                text: row.text
-                                wrapMode: Text.Wrap
-                                font.pixelSize: Theme.fontBody
-                                lineHeight: 1.15
-                                color: row.isMine ? Theme.textOnAccent : Theme.bubbleOtherText
+                            // 我方气泡的光晕 / 投影
+                            Rectangle {
+                                visible: row.isMine
+                                anchors.fill: bubble; anchors.topMargin: 6; anchors.bottomMargin: -6
+                                radius: Theme.radiusBubble + 2
+                                color: Theme.accentGlow
+                                opacity: Theme.dark ? 0.55 : 0.5
+                                Behavior on opacity { NumberAnimation { duration: 260 } }
+                            }
+                            Rectangle {
+                                id: bubble
+                                radius: Theme.radiusBubble
+                                color: row.isMine ? Theme.accent : Theme.accentSoft
+                                border.width: row.isNew && !row.isMine ? 1.5 : 0
+                                border.color: Theme.accent
+                                width: Math.min(bubbleText.implicitWidth, row.maxBubble - 28) + 28
+                                height: bubbleText.height + 19
+                                Behavior on color { ColorAnimation { duration: 260 } }
+                                Text {
+                                    id: bubbleText
+                                    x: 14; y: 9
+                                    width: Math.min(implicitWidth, row.maxBubble - 28)
+                                    text: row.text
+                                    wrapMode: Text.Wrap
+                                    font.pixelSize: Theme.fontBody
+                                    lineHeight: 1.18
+                                    color: row.isMine ? Theme.onAccent : Theme.bubbleOtherText
+                                    Behavior on color { ColorAnimation { duration: 260 } }
+                                }
                             }
                         }
                     }
@@ -311,88 +367,112 @@ Item {
         }
 
         // 引用栏
-        Rectangle {
+        Item {
             Layout.fillWidth: true
-            implicitHeight: visible ? 36 : 0
+            Layout.leftMargin: 16; Layout.rightMargin: 16
+            implicitHeight: visible ? 38 : 0
             visible: root.st.replyToMsgId !== ""
-            color: "#FAFAFA"
-            Rectangle { anchors.top: parent.top; width: parent.width; height: 1; color: Theme.separatorLight }
-            Rectangle { x: 16; y: 9; width: 3; height: 18; radius: 1.5; color: Theme.accent }
-            Text {
-                anchors { left: parent.left; leftMargin: 26; right: closeReply.left; rightMargin: 8; verticalCenter: parent.verticalCenter }
-                text: "回复 " + (root.msgs ? root.msgs.previewOf(root.st.replyToMsgId) : "")
-                elide: Text.ElideRight
-                color: Theme.textSecondary
-                font.pixelSize: Theme.fontSmall
-            }
-            MouseArea {
-                id: closeReply
-                anchors { right: parent.right; rightMargin: 12; verticalCenter: parent.verticalCenter }
-                width: 22; height: 22
-                hoverEnabled: true
-                onClicked: root.write({ replyToMsgId: "" })
-                Rectangle { anchors.fill: parent; radius: 11; color: parent.containsMouse ? Theme.sidebarHover : "transparent" }
-                Text { anchors.centerIn: parent; text: "✕"; font.pixelSize: 11; color: Theme.textSecondary }
-            }
-        }
-
-        // 输入区：圆角输入框 + 圆形发送键
-        Rectangle {
-            Layout.fillWidth: true
-            implicitHeight: Math.max(56, inputFrame.implicitHeight + 20)
-            color: "#FAFAFA"
-            Rectangle { anchors.top: parent.top; width: parent.width; height: 1; color: Theme.separatorLight }
-
             Rectangle {
-                id: inputFrame
-                anchors { left: parent.left; right: sendBtn.left; leftMargin: 16; rightMargin: 10; verticalCenter: parent.verticalCenter }
-                implicitHeight: Math.min(120, Math.max(36, input.implicitHeight + 4))
-                radius: 18
-                color: Theme.inputBg
-                border.width: 1
-                border.color: input.activeFocus ? Theme.accent : Theme.controlBorder
-
-                Flickable {
-                    anchors.fill: parent
-                    anchors.margins: 2
-                    contentHeight: input.implicitHeight
-                    clip: true
-                    boundsBehavior: Flickable.StopAtBounds
-                    TextArea {
-                        id: input
-                        objectName: "draftInput"
-                        width: parent.width
-                        wrapMode: TextArea.Wrap
-                        placeholderText: "输入消息"
-                        placeholderTextColor: Theme.textSecondary
-                        color: Theme.textPrimary
-                        font.pixelSize: Theme.fontBody
-                        leftPadding: 12; rightPadding: 12; topPadding: 7; bottomPadding: 7
-                        background: null
-                        onTextChanged: draftTimer.restart()
-                        onCursorPositionChanged: draftTimer.restart()
-                        // 输入法组合中（中文尚未上屏）不触发迁移
-                        onInputMethodComposingChanged: WindowManager.setComposing(root.convId, inputMethodComposing)
-                        Keys.onPressed: (e) => {
-                            if ((e.key === Qt.Key_Return || e.key === Qt.Key_Enter)
-                                    && !(e.modifiers & Qt.ShiftModifier) && !inputMethodComposing) {
-                                root.send()
-                                e.accepted = true
-                            }
-                        }
+                anchors.fill: parent; anchors.bottomMargin: 6
+                radius: 12
+                color: Theme.surface
+                Behavior on color { ColorAnimation { duration: 260 } }
+                Rectangle { x: 0; y: 8; width: 3; height: parent.height - 16; radius: 1.5; color: Theme.accent }
+                RowLayout {
+                    anchors.fill: parent; anchors.leftMargin: 14; anchors.rightMargin: 8
+                    spacing: 8
+                    Text { text: "回复"; font.pixelSize: Theme.fontSmall; font.bold: true; color: Theme.accent }
+                    Text {
+                        Layout.fillWidth: true
+                        text: root.msgs ? root.msgs.previewOf(root.st.replyToMsgId) : ""
+                        elide: Text.ElideRight
+                        color: Theme.textSecondary
+                        font.pixelSize: Theme.fontSmall
+                    }
+                    MouseArea {
+                        id: closeReply
+                        width: 22; height: 22
+                        hoverEnabled: true
+                        onClicked: root.write({ replyToMsgId: "" })
+                        Rectangle { anchors.fill: parent; radius: 11; color: Theme.accentSoft; opacity: parent.containsMouse ? 1 : 0.6 }
+                        Text { anchors.centerIn: parent; text: "✕"; font.pixelSize: 10; color: Theme.textSecondary }
                     }
                 }
             }
-            MacButton {
-                id: sendBtn
-                anchors { right: parent.right; rightMargin: 16; verticalCenter: parent.verticalCenter }
-                primary: true
-                circular: true
-                text: "↑"
-                font.bold: true
-                font.pixelSize: 15
-                enabled: input.text.trim() !== ""
-                onClicked: root.send()
+        }
+
+        // 输入区：胶囊输入条（方案 C），dark 下描边发光（方案 B）
+        Item {
+            Layout.fillWidth: true
+            Layout.leftMargin: 16; Layout.rightMargin: 16; Layout.bottomMargin: 14
+            implicitHeight: inputFrame.implicitHeight
+
+            Rectangle {   // 光晕
+                anchors.fill: inputFrame; anchors.margins: -4
+                radius: height / 2
+                color: Theme.accentGlow
+                opacity: input.activeFocus ? (Theme.dark ? 0.45 : 0.25) : 0
+                Behavior on opacity { NumberAnimation { duration: 200 } }
+            }
+            Rectangle {
+                id: inputFrame
+                anchors.left: parent.left; anchors.right: parent.right
+                implicitHeight: Math.min(120, Math.max(44, input.implicitHeight + 10))
+                radius: 22
+                color: Theme.input
+                border.width: input.activeFocus ? 1.5 : 1
+                border.color: input.activeFocus ? Theme.accent : Theme.inputBorder
+                Behavior on color { ColorAnimation { duration: 260 } }
+                Behavior on border.color { ColorAnimation { duration: 200 } }
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: 8; anchors.rightMargin: 6
+                    spacing: 6
+                    Flickable {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        contentHeight: input.implicitHeight
+                        clip: true
+                        boundsBehavior: Flickable.StopAtBounds
+                        TextArea {
+                            id: input
+                            objectName: "draftInput"
+                            width: parent.width
+                            wrapMode: TextArea.Wrap
+                            placeholderText: "输入消息…"
+                            placeholderTextColor: Theme.textTertiary
+                            color: Theme.text
+                            font.pixelSize: Theme.fontBody
+                            leftPadding: 10; rightPadding: 6; topPadding: 12; bottomPadding: 12
+                            background: null
+                            onTextChanged: draftTimer.restart()
+                            onCursorPositionChanged: draftTimer.restart()
+                            // 输入法组合中（中文尚未上屏）不触发迁移
+                            onInputMethodComposingChanged: WindowManager.setComposing(root.convId, inputMethodComposing)
+                            Keys.onPressed: (e) => {
+                                if ((e.key === Qt.Key_Return || e.key === Qt.Key_Enter)
+                                        && !(e.modifiers & Qt.ShiftModifier) && !inputMethodComposing) {
+                                    root.send()
+                                    e.accepted = true
+                                }
+                            }
+                        }
+                    }
+                    MacButton {
+                        id: sendBtn
+                        Layout.alignment: Qt.AlignVCenter
+                        primary: true
+                        text: "发送 ➤"
+                        enabled: input.text.trim() !== ""
+                        onClicked: root.send()
+                        SequentialAnimation {
+                            id: sendPulse
+                            NumberAnimation { target: sendBtn; property: "scale"; to: 0.88; duration: 90 }
+                            NumberAnimation { target: sendBtn; property: "scale"; to: 1.0; duration: 260; easing.type: Easing.OutBack }
+                        }
+                    }
+                }
             }
         }
     }

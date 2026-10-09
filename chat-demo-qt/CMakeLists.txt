@@ -31,6 +31,8 @@ qt_add_qml_module(ChatDemo
         qml/DetachedWindow.qml
         qml/Theme.qml
         qml/MacButton.qml
+        qml/Card.qml
+        qml/Avatar.qml
 )
 
 target_link_libraries(ChatDemo PRIVATE

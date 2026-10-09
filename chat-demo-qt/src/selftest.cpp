@@ -70,7 +70,12 @@ void phase1()
     check(wm->placementOf(c) == "main" && wm->mainSelection() == c, "select: 会话在主窗口打开");
 
     if (const QString shot = qEnvironmentVariable("CHATDEMO_SHOT"); !shot.isEmpty()) {
-        wm->mainWindow()->grabWindow().save(shot + ".main.png");   // 可选：截图便于肉眼检查布局
+        wm->mainWindow()->grabWindow().save(shot + ".main.light.png");
+        wm->setDarkMode(true);
+        wait(600);
+        wm->mainWindow()->grabWindow().save(shot + ".main.dark.png");
+        wm->setDarkMode(false);
+        wait(600);   // 可选：截图便于肉眼检查布局
     }
     // 用例 1：草稿 + 光标
     QQuickItem *in = draftInput(wm->mainWindow());
@@ -125,7 +130,7 @@ void phase1()
     check(!ui->state(c).value("unreadDividerMsgId").toString().isEmpty(), "写入「新消息」分隔线");
     QObject::disconnect(conn);
     if (const QString shot = qEnvironmentVariable("CHATDEMO_SHOT"); !shot.isEmpty()) {
-        wm->mainWindow()->grabWindow().save(shot + ".ghost.png");      // 主窗口：空态 + 侧栏未读角标
+        wm->mainWindow()->grabWindow().save(shot + ".ghost.light.png");      // 主窗口：空态 + 侧栏未读角标
     }
 
     // 窗口恢复可见后：自动滚到「新消息」分隔线
@@ -143,8 +148,15 @@ void phase1()
         const int d = divIdx.toInt(), f = first.toInt();
         const bool visible = lv->property("atYEnd").toBool() || (f >= 0 && d >= f && d <= f + 3);
         check(d >= 0 && visible, "窗口恢复后自动滚到「新消息」分隔线");
-        if (const QString shot = qEnvironmentVariable("CHATDEMO_SHOT"); !shot.isEmpty())
-            wm->windowFor(c)->grabWindow().save(shot + ".detached.png");   // 独立窗口：草稿 + 引用 + 新消息分隔线
+        if (const QString shot = qEnvironmentVariable("CHATDEMO_SHOT"); !shot.isEmpty()) {
+            wm->windowFor(c)->grabWindow().save(shot + ".detached.light.png");   // 独立窗口：草稿 + 引用 + 新消息分隔线
+            wm->setDarkMode(true);
+            wait(600);
+            wm->windowFor(c)->grabWindow().save(shot + ".detached.dark.png");
+            wm->mainWindow()->grabWindow().save(shot + ".ghost.dark.png");
+            wm->setDarkMode(false);
+            wait(400);
+        }
     }
     wm->attach(c);
     wait(400);

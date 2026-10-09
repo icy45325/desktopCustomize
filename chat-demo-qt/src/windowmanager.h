@@ -26,7 +26,12 @@ class WindowManager : public QObject
     Q_PROPERTY(QString mainSelection READ mainSelection NOTIFY mainSelectionChanged)
     /// 刚被拆出的会话，主窗口右侧显示「已在独立窗口打开」。
     Q_PROPERTY(QString ghost READ ghost NOTIFY ghostChanged)
+    /// 深色模式，持久化到 layout.ini；所有窗口共享。
+    Q_PROPERTY(bool darkMode READ darkMode WRITE setDarkMode NOTIFY darkModeChanged)
 public:
+    bool darkMode() const { return m_dark; }
+    void setDarkMode(bool v);
+
     static WindowManager *instance();
     static WindowManager *create(QQmlEngine *, QJSEngine *);
 
@@ -64,6 +69,7 @@ public:
     int detachedWindowCount() const;
 
 signals:
+    void darkModeChanged();
     void mainSelectionChanged();
     void ghostChanged();
     void placementChanged(const QString &convId);
@@ -95,6 +101,7 @@ private:
     QSet<QString> m_composing;
     QString m_mainSelection;
     QString m_ghost;
+    bool m_dark = false;
     bool m_terminating = false;
     bool m_restored = false;
 };

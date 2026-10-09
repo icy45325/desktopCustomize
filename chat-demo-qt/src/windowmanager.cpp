@@ -29,6 +29,9 @@ WindowManager *WindowManager::create(QQmlEngine *, QJSEngine *)
 
 WindowManager::WindowManager()
 {
+    m_dark = layoutSettings().value(QStringLiteral("ui/dark"), false).toBool();
+    if (qEnvironmentVariableIsSet("CHATDEMO_DARK"))
+        m_dark = qEnvironmentVariableIntValue("CHATDEMO_DARK") != 0;
     qApp->installEventFilter(this);
     connect(qApp, &QCoreApplication::aboutToQuit, this, [this] {
         m_terminating = true;
@@ -37,6 +40,15 @@ WindowManager::WindowManager()
 }
 
 void WindowManager::setEngine(QQmlEngine *engine) { m_engine = engine; }
+
+void WindowManager::setDarkMode(bool v)
+{
+    if (m_dark == v)
+        return;
+    m_dark = v;
+    layoutSettings().setValue(QStringLiteral("ui/dark"), v);
+    emit darkModeChanged();
+}
 
 // 系统 Quit（macOS ⌘Q 等）会先关闭所有窗口再 aboutToQuit，要在第一时间标记「退出中」，
 // 否则各独立窗口的 closing 会把 Placement 改成 closed，布局就丢了。

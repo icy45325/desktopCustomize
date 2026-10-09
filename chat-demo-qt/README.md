@@ -18,6 +18,7 @@ cmake --build build -j
 |---|---|---|
 | `Ctrl+Shift+O` | 主窗口 | 把当前会话拆到新窗口 |
 | `Ctrl+Shift+M` | 独立窗口 | 合并回主窗口 |
+| `Ctrl+Shift+D` | 任意窗口 | 切换浅色 / 深色主题（所有窗口同步，持久化） |
 | `Ctrl+W` | 当前窗口 | 主窗口关闭右侧会话；独立窗口关闭该窗口 |
 | `↩` / `⇧↩` | 输入框 | 发送 / 换行 |
 
@@ -34,7 +35,8 @@ cmake --build build -j
 | `src/mockserver.*` `src/notifier.*` | 每 3～8 秒随机推消息；`QSystemTrayIcon::showMessage`（无托盘时降级为日志） |
 | `qml/ChatView.qml` | 主窗口与独立窗口共用的会话视图：挂载时恢复、变化时经租约写回 |
 | `qml/Main.qml` `ConversationList.qml` `DetachedWindow.qml` | 容器与列表（拖出检测、右键菜单、快捷键） |
-| `qml/Theme.qml` `MacButton.qml` | macOS 风格色板（Messages 配色）与工具栏按钮 |
+| `qml/Theme.qml` | 双色板单例：Light（柔和渐变底 + 紫色强调）/ Dark（深空底 + 青绿霓虹）；`WindowManager.darkMode` 持久化 |
+| `qml/Card.qml` `Avatar.qml` `MacButton.qml` | 悬浮卡片（伪投影，不依赖 GraphicalEffects）、首字头像、胶囊按钮 |
 
 ## 与 SwiftUI 版的差异
 
@@ -58,8 +60,13 @@ export QT_QPA_PLATFORM=offscreen CHATDEMO_DATA_DIR=$(mktemp -d)
 **需要真机手动验证**：用例 2（滚动锚点，离屏没有真实滚动）、7（点击通知前置窗口）、8（key 窗口可见时不通知，需要真实焦点）、11（外接屏）、真实输入法组合。
 截图：`CHATDEMO_SHOT=/tmp/a.png` 配合 `--selftest` 会保存主窗口截图。
 
-## 截图（offscreen 自测中抓取）
+## 截图（offscreen 自测中抓取，`--selftest` + `CHATDEMO_SHOT=路径前缀`）
 
-| 主窗口 | 拆出后的主窗口空态 | 独立窗口（草稿 + 引用 + 新消息分隔线） |
+| | Light | Dark |
 |---|---|---|
-| ![](docs/shot.main.png) | ![](docs/shot.ghost.png) | ![](docs/shot.detached.png) |
+| 主窗口 | ![](docs/shot.main.light.png) | ![](docs/shot.main.dark.png) |
+| 拆出后的主窗口 | ![](docs/shot.ghost.light.png) | ![](docs/shot.ghost.dark.png) |
+| 独立窗口（草稿 + 引用 + 新消息） | ![](docs/shot.detached.light.png) | ![](docs/shot.detached.dark.png) |
+
+动效：选中会话卡片轻微漂浮、hover 上浮；未读角标数字增加时弹跳；新消息从底部上浮进入；发送按钮按下回弹；主题切换时各颜色 260ms 渐变、切换按钮旋转一圈。
+`CHATDEMO_DARK=1` 可强制以深色启动（自测/截图用）。
