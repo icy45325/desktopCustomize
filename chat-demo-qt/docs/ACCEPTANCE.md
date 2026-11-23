@@ -4,7 +4,7 @@
 
 ```bash
 brew install qt cmake                       # Qt 6.5+；已装可跳过
-git fetch origin claude/repo-review-qewl9h && git checkout claude/repo-review-qewl9h
+git fetch origin claude/epic-fermat-cj4h7h && git checkout claude/epic-fermat-cj4h7h
 cd chat-demo-qt
 cmake -B build -DCMAKE_PREFIX_PATH="$(brew --prefix qt)"
 cmake --build build -j
