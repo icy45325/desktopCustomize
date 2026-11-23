@@ -169,7 +169,7 @@ Item {
                                 id: badgeText
                                 anchors.centerIn: parent
                                 text: del.unread
-                                color: Theme.onBadge
+                                color: Theme.badgeText
                                 font.pixelSize: 11; font.bold: true
                             }
                             property int lastUnread: 0

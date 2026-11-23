@@ -12,7 +12,7 @@ QtObject {
     property color accent: dark ? "#5EEAD4" : "#6C5CE7"
     property color accentSoft: dark ? "#1A5EEAD4" : "#F3F1FF"      // 气泡（对方）/ 轻底
     property color accentGlow: dark ? "#805EEAD4" : "#666C5CE7"    // 阴影 / 光晕
-    property color onAccent: dark ? "#0D0F14" : "#FFFFFF"
+    property color accentText: dark ? "#0D0F14" : "#FFFFFF"
     property color accentSecondary: dark ? "#A78BFA" : "#A29BFE"   // 分隔线渐变终点、引用
 
     // 底与面
@@ -33,8 +33,17 @@ QtObject {
     property color textTertiary: dark ? "#7C8190" : "#9A95B5"
     property color bubbleOtherText: dark ? "#ECEDEF" : "#1F1D2B"
     property color badge: dark ? "#5EEAD4" : "#6C5CE7"
-    property color onBadge: dark ? "#0D0F14" : "#FFFFFF"
+    property color badgeText: dark ? "#0D0F14" : "#FFFFFF"
     property color online: dark ? "#5EEAD4" : "#2ECC8A"
+
+    // 日历
+    property color danger: dark ? "#FF6B6B" : "#FF3B30"            // 当前时间线、逾期（macOS 日历的红）
+    property color gridLine: dark ? "#14FFFFFF" : "#121F1D2B"
+    property color gridLineStrong: dark ? "#26FFFFFF" : "#221F1D2B"
+    property color weekendBg: dark ? "#07FFFFFF" : "#0A6C5CE7"
+    property color fieldBorder: dark ? "#26FFFFFF" : "#E6E3F5"
+    property color hover: dark ? "#10FFFFFF" : "#0D6C5CE7"
+    property color popup: dark ? "#1C2029" : "#FFFFFF"
 
     // 发言人名字按名字哈希取色（方案 B）
     readonly property var senderPalette: dark

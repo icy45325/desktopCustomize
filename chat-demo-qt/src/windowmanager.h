@@ -28,7 +28,12 @@ class WindowManager : public QObject
     Q_PROPERTY(QString ghost READ ghost NOTIFY ghostChanged)
     /// 深色模式，持久化到 layout.ini；所有窗口共享。
     Q_PROPERTY(bool darkMode READ darkMode WRITE setDarkMode NOTIFY darkModeChanged)
+    /// 主窗口当前模块："chat" | "calendar"，持久化到 layout.ini。
+    Q_PROPERTY(QString module READ module WRITE setModule NOTIFY moduleChanged)
 public:
+    QString module() const { return m_module; }
+    void setModule(const QString &m);
+
     bool darkMode() const { return m_dark; }
     void setDarkMode(bool v);
 
@@ -70,6 +75,7 @@ public:
 
 signals:
     void darkModeChanged();
+    void moduleChanged();
     void mainSelectionChanged();
     void ghostChanged();
     void placementChanged(const QString &convId);
@@ -102,6 +108,7 @@ private:
     QString m_mainSelection;
     QString m_ghost;
     bool m_dark = false;
+    QString m_module = QStringLiteral("chat");
     bool m_terminating = false;
     bool m_restored = false;
 };

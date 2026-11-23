@@ -1,3 +1,4 @@
+#include "calendarstore.h"
 #include "chatstore.h"
 #include "mockserver.h"
 #include "notifier.h"
@@ -24,6 +25,7 @@ int main(int argc, char *argv[])
 
     Notifier notifier;
     QObject::connect(ChatStore::instance(), &ChatStore::notificationRequested, &notifier, &Notifier::notify);
+    QObject::connect(CalendarStore::instance(), &CalendarStore::notificationRequested, &notifier, &Notifier::notify);
     QObject::connect(&notifier, &Notifier::clicked, WindowManager::instance(), &WindowManager::route);
     // placement 变化时刷新会话列表里的「已拆出」标记
     // （WindowManager::setPlacement 已直接通知 ChatStore）
@@ -37,7 +39,7 @@ int main(int argc, char *argv[])
 
     const QStringList args = app.arguments();
     if (args.contains(QStringLiteral("--selftest")))
-        SelfTest::schedule(args.contains(QStringLiteral("--phase2")) ? 2 : 1);
+        SelfTest::schedule(args.contains(QStringLiteral("--calendar")) ? 3 : args.contains(QStringLiteral("--phase2")) ? 2 : 1);
 
     return app.exec();
 }

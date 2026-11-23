@@ -20,6 +20,7 @@ Item {
     readonly property bool activeVisible: Window.window !== null && Window.active
                                           && Window.visibility !== Window.Minimized
                                           && Qt.application.state === Qt.ApplicationActive
+                                          && (detached || WindowManager.module === "chat")   // 主窗口切到日历时不算可见
     readonly property bool canMarkRead: activeVisible && st.atBottom
 
     onActiveVisibleChanged: {
@@ -247,7 +248,7 @@ Item {
                             anchors.centerIn: parent
                             text: (root.msgs.count - root.dividerIndex()) + " 条新消息 ↓"
                             font.pixelSize: Theme.fontSmall; font.bold: true
-                            color: Theme.onAccent
+                            color: Theme.accentText
                         }
                     }
                 }
@@ -347,7 +348,7 @@ Item {
                                     wrapMode: Text.Wrap
                                     font.pixelSize: Theme.fontBody
                                     lineHeight: 1.18
-                                    color: row.isMine ? Theme.onAccent : Theme.bubbleOtherText
+                                    color: row.isMine ? Theme.accentText : Theme.bubbleOtherText
                                     Behavior on color { ColorAnimation { duration: 260 } }
                                 }
                             }

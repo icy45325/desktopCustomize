@@ -1,6 +1,7 @@
 #include "windowmanager.h"
 
 #include "appdata.h"
+#include "calendarstore.h"
 #include "chatstore.h"
 #include "uistatestore.h"
 
@@ -32,6 +33,9 @@ WindowManager::WindowManager()
     m_dark = layoutSettings().value(QStringLiteral("ui/dark"), false).toBool();
     if (qEnvironmentVariableIsSet("CHATDEMO_DARK"))
         m_dark = qEnvironmentVariableIntValue("CHATDEMO_DARK") != 0;
+    m_module = layoutSettings().value(QStringLiteral("ui/module"), QStringLiteral("chat")).toString();
+    if (qEnvironmentVariableIsSet("CHATDEMO_MODULE"))
+        m_module = qEnvironmentVariable("CHATDEMO_MODULE");
     qApp->installEventFilter(this);
     connect(qApp, &QCoreApplication::aboutToQuit, this, [this] {
         m_terminating = true;
@@ -48,6 +52,15 @@ void WindowManager::setDarkMode(bool v)
     m_dark = v;
     layoutSettings().setValue(QStringLiteral("ui/dark"), v);
     emit darkModeChanged();
+}
+
+void WindowManager::setModule(const QString &m)
+{
+    if (m_module == m || (m != QLatin1String("chat") && m != QLatin1String("calendar")))
+        return;
+    m_module = m;
+    layoutSettings().setValue(QStringLiteral("ui/module"), m);
+    emit moduleChanged();
 }
 
 // 系统 Quit（macOS ⌘Q 等）会先关闭所有窗口再 aboutToQuit，要在第一时间标记「退出中」，
@@ -207,6 +220,14 @@ void WindowManager::detachedClosed(const QString &convId)
 
 void WindowManager::route(const QString &convId)
 {
+    // 日历提醒：切到日历模块并跳到该事件所在日期
+    if (convId.startsWith(QLatin1String("cal:"))) {
+        setModule(QStringLiteral("calendar"));
+        CalendarStore::instance()->reveal(convId.mid(4));
+        raiseWindow(m_mainWindow);
+        return;
+    }
+    setModule(QStringLiteral("chat"));
     if (placementOf(convId) == QLatin1String("detached")) {
         raiseWindow(m_windows.value(convId));
     } else {

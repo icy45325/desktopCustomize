@@ -38,7 +38,7 @@ Button {
         id: label
         text: btn.text
         font: btn.font
-        color: !btn.enabled ? Theme.textTertiary : (btn.primary ? Theme.onAccent : Theme.accent)
+        color: !btn.enabled ? Theme.textTertiary : (btn.primary ? Theme.accentText : Theme.accent)
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
         Behavior on color { ColorAnimation { duration: 200 } }

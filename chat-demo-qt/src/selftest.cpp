@@ -1,14 +1,20 @@
 #include "selftest.h"
 
+#include "calendarstore.h"
 #include "chatstore.h"
+#include "ical.h"
 #include "uistatestore.h"
 #include "windowmanager.h"
+#include "appdata.h"
 
+#include <QDir>
 #include <QEventLoop>
+#include <QFile>
 #include <QGuiApplication>
 #include <QQuickItem>
 #include <QQuickWindow>
 #include <QTimer>
+#include <QUrl>
 
 namespace {
 int g_fail = 0;
@@ -194,9 +200,229 @@ void phase2()
     check(in && in->property("text").toString() == "保存到磁盘", "重启后草稿还在");
     finish();
 }
+
+// MARK: 日历
+
+QList<QDate> starts(const ical::Event &e, QDate from, QDate to)
+{
+    QList<QDate> out;
+    for (const QDateTime &dt : ical::expand(e, QDateTime(from, QTime(0, 0)), QDateTime(to, QTime(0, 0)))) out << dt.date();
+    return out;
+}
+
+ical::Event rule(const QString &rrule, QDate start, QTime t = QTime(9, 0))
+{
+    ical::Event e;
+    e.uid = "t";
+    e.start = QDateTime(start, t);
+    e.end = e.start.addSecs(3600);
+    e.rrule = rrule;
+    return e;
+}
+
+void icalTests()
+{
+    QFile f(":/qt/qml/ChatDemo/data/team-sample.ics");
+    check(f.open(QIODevice::ReadOnly), "ical: 读取内置示例 .ics");
+    const ical::Calendar c = ical::parse(f.readAll());
+    check(c.name == "团队公共日历", "ical: X-WR-CALNAME");
+    check(c.events.size() == 7 && c.todos.size() == 3, "ical: 7 个 VEVENT（含 1 个 RECURRENCE-ID 覆盖）+ 3 个 VTODO");
+    const auto find = [&](const QString &uid) { for (const auto &e : c.events) if (e.uid == uid) return e; return ical::Event{}; };
+    const ical::Event allhands = find("allhands@team.example");
+    check(allhands.notes.contains("风险, 依赖与求助") && allhands.notes.contains('\n'), "ical: 文本反转义（\\n、\\,）");
+    check(find("offsite@team.example").notes.contains("会被折成多行"), "ical: 折行还原");
+    check(find("offsite@team.example").allDay && find("offsite@team.example").end.date() == QDate(2026, 12, 14), "ical: 全天多日事件（DTEND 不含）");
+    const ical::Event utc = find("global-sync@team.example");
+    check(utc.start == QDateTime(QDate(2026, 11, 25), QTime(2, 0), Qt::UTC).toLocalTime(), "ical: UTC 时间换算为本地");
+    const ical::Event sh = find("sprint-planning@team.example");
+    check(sh.start.toUTC().time() == QTime(7, 0) && sh.reminderMinutes == 15, "ical: TZID=Asia/Shanghai 换算 + VALARM");
+    check(find("monthly-review@team.example").end == find("monthly-review@team.example").start.addSecs(3600), "ical: DURATION");
+
+    // 重复规则
+    const QDate nov23(2026, 11, 23);
+    const QList<QDate> ah = starts(allhands, nov23, nov23.addDays(14));
+    check(!ah.isEmpty() && !ah.contains(QDate(2026, 11, 26)), "RRULE: RECURRENCE-ID 覆盖的实例被排除");
+    check(starts(find("monthly-review@team.example"), QDate(2026, 11, 1), QDate(2026, 12, 1)) == QList<QDate>{QDate(2026, 11, 27)},
+          "RRULE: MONTHLY;BYDAY=-1FR（最后一个周五）");
+    const ical::Event sp = sh;
+    QList<QDate> spDays;
+    for (const QDateTime &x : ical::expand(sp, sp.start.addDays(320), sp.start.addDays(340))) spDays << x.toUTC().date();
+    check(spDays.size() == 1 && spDays[0] == QDate(2026, 11, 23), "RRULE: WEEKLY;INTERVAL=2（双周）");
+    check(ical::expand(sp, QDateTime(QDate(2026, 12, 6), QTime(0, 0)), QDateTime(QDate(2026, 12, 9), QTime(0, 0))).isEmpty(), "RRULE: EXDATE 排除");
+    check(starts(rule("FREQ=DAILY;COUNT=3", nov23), nov23, nov23.addDays(30)).size() == 3, "RRULE: COUNT");
+    check(starts(rule("FREQ=DAILY;UNTIL=20261125", nov23), nov23, nov23.addDays(30)).size() == 3, "RRULE: UNTIL（日期，含当天）");
+    check(starts(rule("FREQ=WEEKLY;BYDAY=MO,WE,FR", nov23), nov23, nov23.addDays(7)).size() == 3, "RRULE: WEEKLY;BYDAY 多天");
+    check(starts(rule("FREQ=MONTHLY", QDate(2026, 1, 31)), QDate(2026, 1, 1), QDate(2027, 1, 1)).size() == 7, "RRULE: 31 号按月重复跳过小月");
+    check(starts(rule("FREQ=YEARLY", QDate(2024, 2, 29)), QDate(2024, 1, 1), QDate(2033, 1, 1)).size() == 3, "RRULE: 2/29 按年只在闰年");
+    check(starts(rule("FREQ=MONTHLY;BYDAY=MO,TU,WE,TH,FR;BYSETPOS=-1", nov23), QDate(2026, 11, 1), QDate(2027, 1, 1))
+              == QList<QDate>{QDate(2026, 11, 30), QDate(2026, 12, 31)}, "RRULE: BYSETPOS=-1（每月最后一个工作日）");
+    check(starts(rule("FREQ=YEARLY;BYMONTH=11;BYDAY=4TH", QDate(2026, 11, 26)), QDate(2026, 1, 1), QDate(2028, 1, 1))
+              == QList<QDate>{QDate(2026, 11, 26), QDate(2027, 11, 25)}, "RRULE: YEARLY;BYMONTH;BYDAY=4TH");
+
+    // 序列化往返
+    ical::Event e = rule("FREQ=WEEKLY;BYDAY=TU", nov23.addDays(1));
+    e.uid = "rt@x"; e.title = "含,逗号;分号\n换行 和一段很长很长很长很长很长很长很长很长很长很长很长很长很长的中文"; e.location = "A"; e.reminderMinutes = 30;
+    e.exdates << QDateTime(nov23.addDays(8), QTime(9, 0));
+    ical::Todo t; t.uid = "todo@x"; t.title = "待办"; t.due = nov23; t.dueTime = QTime(18, 0); t.priority = 1; t.done = true;
+    t.completed = QDateTime::currentDateTime();
+    const QByteArray bytes = ical::serialize("往返", "#112233", {e}, {t});
+    const ical::Calendar back = ical::parse(bytes);
+    bool lineOk = true;
+    for (const QByteArray &l : bytes.split('\n')) lineOk = lineOk && l.size() <= 76;
+    check(lineOk, "serialize: 每行不超过 75 字节（折行）");
+    check(back.name == "往返" && back.color == "#112233" && back.events.size() == 1 && back.events[0].title == e.title
+              && back.events[0].rrule == e.rrule && back.events[0].reminderMinutes == 30 && back.events[0].exdates.size() == 1,
+          "serialize → parse 往返：事件字段一致");
+    check(back.todos.size() == 1 && back.todos[0].done && back.todos[0].dueTime == QTime(18, 0) && back.todos[0].priority == 1,
+          "serialize → parse 往返：待办字段一致");
+}
+
+QStringList titlesOn(const QDate &d)
+{
+    QStringList r;
+    for (const QVariant &v : CalendarStore::instance()->occurrences(d.toString(Qt::ISODate), d.addDays(1).toString(Qt::ISODate)))
+        r << v.toMap().value("title").toString();
+    return r;
+}
+
+void calendarPhase()
+{
+    auto *wm = WindowManager::instance();
+    auto *cs = CalendarStore::instance();
+    icalTests();
+
+    // 数据层
+    const QDate today = QDate::currentDate();
+    check(cs->calendars().size() == 4, "store: 首次启动生成 3 个本地日历 + 1 个示例订阅");
+    QVariantMap sub;
+    for (const QVariant &v : cs->calendars()) if (v.toMap()["kind"] == "subscription") sub = v.toMap();
+    check(sub["lastError"].toString().isEmpty() && sub["eventCount"].toInt() == 7, "store: 示例订阅已同步（qrc:）");
+    check(titlesOn(today).contains("产品评审") && titlesOn(today).contains("1:1 沟通"), "store: 今天的本地事件");
+    check(QFile::exists(dataDir() + "/calendar/work.ics") && QFile::exists(dataDir() + "/calendar/calendars.json"), "store: 本地日历以 .ics 落盘");
+
+    const QDateTime s(today.addDays(1), QTime(15, 0));
+    const QString uid = cs->createEvent({{"title", "自测活动"}, {"calendarId", "personal"}, {"startMs", double(s.toMSecsSinceEpoch())},
+                                         {"endMs", double(s.addSecs(5400).toMSecsSinceEpoch())}, {"rrule", "FREQ=DAILY;COUNT=5"}});
+    check(!uid.isEmpty() && titlesOn(today.addDays(1)).contains("自测活动") && titlesOn(today.addDays(5)).contains("自测活动")
+              && !titlesOn(today.addDays(6)).contains("自测活动"), "store: 新建重复活动（COUNT=5）");
+    cs->deleteEvent(uid, "this", double(QDateTime(today.addDays(3), QTime(15, 0)).toMSecsSinceEpoch()));
+    check(!titlesOn(today.addDays(3)).contains("自测活动") && titlesOn(today.addDays(4)).contains("自测活动"), "store: 删除单次实例（EXDATE）");
+    cs->updateEvent(uid, {{"title", "自测活动（改）"}, {"calendarId", "work"}});
+    check(titlesOn(today.addDays(2)).contains("自测活动（改）") && cs->event(uid)["calendarId"] == "work", "store: 编辑并移到其它日历");
+    cs->deleteEvent(uid, "all");
+    check(cs->event(uid).isEmpty(), "store: 删除整个系列");
+    check(!cs->updateEvent("allhands@team.example", {{"title", "x"}}), "store: 订阅日历只读，不能修改");
+
+    const int before = cs->todos("today").size();
+    const QString tid = cs->createTodo({{"title", "自测待办"}, {"dueIso", today.toString(Qt::ISODate)}, {"dueTime", "23:59"}});
+    check(cs->todos("today").size() == before + 1, "store: 新建今天的待办");
+    cs->toggleTodo(tid);
+    check(cs->todos("today").size() == before && cs->todo(tid)["done"].toBool(), "store: 勾选完成");
+    bool inRange = false;
+    cs->setShowCompleted(true);
+    for (const QVariant &v : cs->todosInRange(today.toString(Qt::ISODate), today.addDays(1).toString(Qt::ISODate))) inRange |= v.toMap()["uid"] == tid;
+    cs->setShowCompleted(false);
+    check(inRange, "store: 待办按截止日期出现在日历区间里");
+    cs->deleteTodo(tid);
+
+    cs->setCalendarVisible("work", false);
+    check(!titlesOn(today).contains("产品评审"), "store: 隐藏日历后不显示其事件");
+    cs->setCalendarVisible("work", true);
+    check(!cs->search("评审").isEmpty(), "store: 搜索");
+
+    // 订阅：本地文件 + 错误地址
+    const QString path = dataDir() + "/import-test.ics";
+    {
+        QFile out(path);
+        out.open(QIODevice::WriteOnly);
+        out.write(ical::serialize("外部日历", "#FF5A5F", {rule("FREQ=WEEKLY;BYDAY=MO", today)}, {}));
+    }
+    const QString sid = cs->subscribe(QUrl::fromLocalFile(path).toString(), "", "", 60);
+    QVariantMap s2;
+    for (const QVariant &v : cs->calendars()) if (v.toMap()["id"] == sid) s2 = v.toMap();
+    check(s2["name"] == "外部日历" && s2["eventCount"] == 1 && s2["readOnly"].toBool(), "subscribe: file:// 订阅，名称取 X-WR-CALNAME");
+    check(cs->subscribe(QUrl::fromLocalFile(path).toString(), "", "", 60) == sid, "subscribe: 同一地址不重复订阅");
+    const QString bad = cs->subscribe("ftp://example.invalid/x.ics", "坏地址", "", 60);
+    QVariantMap s3;
+    for (const QVariant &v : cs->calendars()) if (v.toMap()["id"] == bad) s3 = v.toMap();
+    check(!s3["lastError"].toString().isEmpty(), "subscribe: 不支持的地址给出错误");
+    cs->removeCalendar(bad);
+    cs->removeCalendar(sid);
+    check(cs->calendars().size() == 4, "subscribe: 取消订阅");
+
+    // 提醒 → 通知 → 点击路由到日历
+    QString notifiedKey;
+    auto conn = QObject::connect(cs, &CalendarStore::notificationRequested, [&](const QString &k, auto &&...) { notifiedKey = k; });
+    const QDateTime soon = QDateTime::currentDateTime().addSecs(5 * 60);
+    const QString rid = cs->createEvent({{"title", "提醒测试"}, {"startMs", double(soon.toMSecsSinceEpoch())},
+                                         {"endMs", double(soon.addSecs(1800).toMSecsSinceEpoch())}, {"reminder", 10}});
+    cs->checkReminders();
+    check(notifiedKey.startsWith("cal:" + rid), "reminder: 到点发出系统通知");
+    QObject::disconnect(conn);
+    wm->setModule("chat");
+    wm->route(notifiedKey);
+    check(wm->module() == "calendar", "reminder: 点击通知切到日历模块");
+    cs->deleteEvent(rid);
+
+    // 视图
+    wait(600);
+    QQuickItem *cv = findItem(wm->mainWindow(), "calendarView");
+    if (QQuickItem *b = findItem(wm->mainWindow(), "createButton")) {   // 强调色按钮上的文字是浅色（曾因属性名 onAccent 被当成信号处理器而变黑）
+        auto *ci = b->property("contentItem").value<QQuickItem *>();
+        check(ci && ci->property("color").value<QColor>().lightness() > 200, "UI: 强调色按钮文字为浅色");
+    }
+    check(cv != nullptr && cv->isVisible(), "UI: 日历模块已加载");
+    if (!cv) return finish();
+    const QString shot = qEnvironmentVariable("CHATDEMO_SHOT");
+    const QStringList modes{"week", "month", "day", "year", "agenda"};
+    const QHash<QString, QString> expect{{"week", "timeGrid"}, {"day", "timeGrid"}, {"month", "monthView"}, {"year", "yearView"}, {"agenda", "agendaView"}};
+    for (const QString &m : modes) {
+        cs->setViewMode(m);
+        wait(500);
+        QQuickItem *loader = findItem(wm->mainWindow(), "viewLoader");
+        auto *item = loader ? loader->property("item").value<QQuickItem *>() : nullptr;
+        check(item && item->objectName() == expect[m], qPrintable("UI: 切换到 " + m + " 视图"));
+        if (!shot.isEmpty()) {
+            wm->mainWindow()->grabWindow().save(shot + ".calendar." + m + ".light.png");
+            if (m == "week" || m == "month") {
+                wm->setDarkMode(true);
+                wait(500);
+                wm->mainWindow()->grabWindow().save(shot + ".calendar." + m + ".dark.png");
+                wm->setDarkMode(false);
+                wait(400);
+            }
+        }
+    }
+    cs->setViewMode("week");
+    wait(400);
+    int blocks = 0;
+    QList<QQuickItem *> stack{wm->mainWindow()->contentItem()};
+    while (!stack.isEmpty()) {
+        QQuickItem *it = stack.takeLast();
+        if (it->objectName() == "eventBlock" && it->isVisible()) ++blocks;
+        stack += it->childItems();
+    }
+    check(blocks >= 5, "UI: 周视图渲染出事件块");
+    QQuickItem *todoPanel = findItem(wm->mainWindow(), "todoPanel");
+    check(todoPanel && todoPanel->isVisible(), "UI: 待办面板显示");
+
+    // 编辑器截图
+    if (!shot.isEmpty()) {
+        QMetaObject::invokeMethod(cv, "createAt", Q_ARG(QVariant, QVariant()), Q_ARG(QVariant, QVariant()), Q_ARG(QVariant, false), Q_ARG(QVariant, "event"));
+        wait(500);
+        wm->mainWindow()->grabWindow().save(shot + ".calendar.editor.light.png");
+        if (QObject *ed = cv->findChild<QObject *>("eventEditor")) QMetaObject::invokeMethod(ed, "close");
+        QMetaObject::invokeMethod(cv, "openSubscribe", Q_ARG(QVariant, QString()));
+        wait(500);
+        wm->mainWindow()->grabWindow().save(shot + ".calendar.subscribe.light.png");
+        if (QObject *sd = cv->findChild<QObject *>("subscribeDialog")) QMetaObject::invokeMethod(sd, "close");
+        wait(300);
+    }
+    finish();
+}
 }  // namespace
 
 void SelfTest::schedule(int phase)
 {
-    QTimer::singleShot(1000, [phase] { phase == 1 ? phase1() : phase2(); });
+    QTimer::singleShot(1000, [phase] { phase == 3 ? calendarPhase() : phase == 1 ? phase1() : phase2(); });
 }
