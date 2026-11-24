@@ -36,6 +36,11 @@ WindowManager::WindowManager()
     m_module = layoutSettings().value(QStringLiteral("ui/module"), QStringLiteral("chat")).toString();
     if (qEnvironmentVariableIsSet("CHATDEMO_MODULE"))
         m_module = qEnvironmentVariable("CHATDEMO_MODULE");
+    {
+        QSettings ls = layoutSettings();
+        m_panelOpen = ls.value(QStringLiteral("panel/open"), true).toBool();
+        m_panelTab = ls.value(QStringLiteral("panel/tab"), QStringLiteral("todo")).toString();
+    }
     qApp->installEventFilter(this);
     connect(qApp, &QCoreApplication::aboutToQuit, this, [this] {
         m_terminating = true;
@@ -61,6 +66,170 @@ void WindowManager::setModule(const QString &m)
     m_module = m;
     layoutSettings().setValue(QStringLiteral("ui/module"), m);
     emit moduleChanged();
+}
+
+// MARK: - 动态面板
+
+void WindowManager::savePanel()
+{
+    if (m_terminating)
+        return;
+    QSettings s = layoutSettings();
+    s.setValue(QStringLiteral("panel/open"), m_panelOpen);
+    s.setValue(QStringLiteral("panel/tab"), m_panelTab);
+    s.setValue(QStringLiteral("panel/detached"), m_panelDetached);
+    s.setValue(QStringLiteral("panel/conv"), m_panelConv);
+}
+
+void WindowManager::setPanelOpen(bool v)
+{
+    if (m_panelOpen == v)
+        return;
+    if (!v && m_panelDetached) {   // 关闭面板时一并关掉面板窗口
+        m_panelDetached = false;
+        if (m_panelWindow) { m_panelWindow->close(); m_panelWindow->deleteLater(); }
+    }
+    if (!v && !m_panelConv.isEmpty())
+        UIStateStore::instance()->flush(m_panelConv);
+    m_panelOpen = v;
+    savePanel();
+    emit panelChanged();
+}
+
+void WindowManager::setPanelTab(const QString &t)
+{
+    static const QStringList tabs{QStringLiteral("todo"), QStringLiteral("meetings"), QStringLiteral("calendar"),
+                                  QStringLiteral("chat"), QStringLiteral("assistant")};
+    if (m_panelTab == t || !tabs.contains(t))
+        return;
+    m_panelTab = t;
+    savePanel();
+    emit panelChanged();
+}
+
+void WindowManager::setPanelConv(const QString &id)
+{
+    if (m_panelConv == id)
+        return;
+    m_panelConv = id;
+    savePanel();
+    emit panelChanged();
+}
+
+void WindowManager::createPanelWindow()
+{
+    if (!m_engine || m_panelWindow)
+        return;
+    QQmlComponent c(m_engine, QUrl(QStringLiteral("qrc:/qt/qml/ChatDemo/qml/PanelWindow.qml")));
+    auto *w = qobject_cast<QQuickWindow *>(c.create());
+    if (!w) {
+        qWarning() << "PanelWindow.qml" << c.errors();
+        return;
+    }
+    QRect geo(QPoint(), QSize(340, 640));
+    const QVariantMap saved = savedGeometry(QStringLiteral("panel"));
+    if (saved.value(QStringLiteral("valid")).toBool())
+        geo = QRect(saved[QStringLiteral("x")].toInt(), saved[QStringLiteral("y")].toInt(),
+                    saved[QStringLiteral("width")].toInt(), saved[QStringLiteral("height")].toInt());
+    else if (m_mainWindow)
+        geo.moveTopLeft(m_mainWindow->geometry().topRight() + QPoint(12, 0));
+    w->setGeometry(onScreen(geo));
+    m_panelWindow = w;
+    w->show();
+    raiseWindow(w);
+}
+
+void WindowManager::detachPanel()
+{
+    if (m_panelDetached) {
+        raiseWindow(m_panelWindow);
+        return;
+    }
+    if (!m_panelConv.isEmpty())
+        UIStateStore::instance()->flush(m_panelConv);   // 面板里的会话视图会在新窗口重新挂载
+    m_panelDetached = true;
+    m_panelOpen = true;
+    savePanel();
+    emit panelChanged();      // 主窗口里的面板先卸载（释放租约）
+    createPanelWindow();      // 再在新窗口里挂载
+}
+
+void WindowManager::attachPanel()
+{
+    if (!m_panelDetached)
+        return;
+    if (!m_panelConv.isEmpty())
+        UIStateStore::instance()->flush(m_panelConv);
+    m_panelDetached = false;
+    QPointer<QQuickWindow> w = m_panelWindow;
+    m_panelWindow = nullptr;
+    if (w) {
+        saveGeometry(QStringLiteral("panel"), w->x(), w->y(), w->width(), w->height());
+        w->close();
+        w->deleteLater();
+    }
+    savePanel();
+    emit panelChanged();
+    raiseWindow(m_mainWindow);
+}
+
+void WindowManager::panelWindowClosed()
+{
+    // 用户直接关了面板窗口：等同于关闭面板（下次打开时停靠在主窗口）
+    if (m_terminating || !m_panelDetached)
+        return;
+    m_panelWindow = nullptr;
+    m_panelDetached = false;
+    m_panelOpen = false;
+    savePanel();
+    emit panelChanged();
+}
+
+void WindowManager::openInPanel(const QString &id)
+{
+    if (id.isEmpty())
+        return;
+    if (placementOf(id) == QLatin1String("detached")) {
+        raiseWindow(m_windows.value(id));
+        return;
+    }
+    if (deferIfComposing(id, [this, id] { openInPanel(id); }))
+        return;
+    UIStateStore::instance()->flush(id);
+    if (!m_panelConv.isEmpty() && m_panelConv != id) {
+        UIStateStore::instance()->flush(m_panelConv);
+        setPlacement(m_panelConv, QStringLiteral("closed"));
+    }
+    if (m_mainSelection == id) {
+        setMainSelection(QString());
+        setGhost(id);
+    }
+    setPlacement(id, QStringLiteral("panel"));
+    setPanelConv(id);
+    m_panelTab = QStringLiteral("chat");
+    m_panelOpen = true;
+    savePanel();
+    emit panelChanged();
+    saveLayout();
+    raiseWindow(m_panelDetached ? m_panelWindow.data() : m_mainWindow.data());
+}
+
+void WindowManager::closePanelConv()
+{
+    if (m_panelConv.isEmpty())
+        return;
+    UIStateStore::instance()->flush(m_panelConv);
+    setPlacement(m_panelConv, QStringLiteral("closed"));
+    if (m_ghost == m_panelConv)
+        setGhost(QString());
+    setPanelConv(QString());
+    saveLayout();
+}
+
+void WindowManager::focusCalendar()
+{
+    setModule(QStringLiteral("calendar"));
+    raiseWindow(m_mainWindow);
 }
 
 // 系统 Quit（macOS ⌘Q 等）会先关闭所有窗口再 aboutToQuit，要在第一时间标记「退出中」，
@@ -141,6 +310,10 @@ void WindowManager::select(const QString &convId)
         raiseWindow(m_windows.value(convId));   // 单实例：前置已有窗口
         return;
     }
+    if (placementOf(convId) == QLatin1String("panel")) {   // 从面板移回主窗口
+        UIStateStore::instance()->flush(convId);
+        setPanelConv(QString());
+    }
     if (!m_mainSelection.isEmpty() && m_mainSelection != convId)
         release(m_mainSelection);
     setMainSelection(convId);
@@ -173,6 +346,8 @@ void WindowManager::detachImpl(const QString &id, std::optional<QPointF> origin)
     if (deferIfComposing(id, [this, id, origin] { detachImpl(id, origin); }))
         return;
     UIStateStore::instance()->flush(id);                 // 1. 旧视图 flush（2. 租约在旧视图销毁/新视图获取时交接）
+    if (m_panelConv == id)
+        setPanelConv(QString());
     setPlacement(id, QStringLiteral("detached"));        // 3. 更新 Placement
     if (m_mainSelection == id) {
         setMainSelection(QString());
@@ -225,6 +400,14 @@ void WindowManager::route(const QString &convId)
         setModule(QStringLiteral("calendar"));
         CalendarStore::instance()->reveal(convId.mid(4));
         raiseWindow(m_mainWindow);
+        return;
+    }
+    if (placementOf(convId) == QLatin1String("panel")) {   // 会话在面板里：打开面板并前置面板所在窗口
+        m_panelOpen = true;
+        m_panelTab = QStringLiteral("chat");
+        savePanel();
+        emit panelChanged();
+        raiseWindow(m_panelDetached ? m_panelWindow.data() : m_mainWindow.data());
         return;
     }
     setModule(QStringLiteral("chat"));
@@ -349,6 +532,8 @@ void WindowManager::saveAllGeometry()
             s.setValue(QStringLiteral("geom/") + it.key(), it.value()->geometry());
     if (m_mainWindow)
         s.setValue(QStringLiteral("geom/main"), m_mainWindow->geometry());
+    if (m_panelWindow)
+        s.setValue(QStringLiteral("geom/panel"), m_panelWindow->geometry());
 }
 
 void WindowManager::saveLayout()
@@ -377,6 +562,20 @@ void WindowManager::restoreLayout()
     const QStringList ids = s.value(QStringLiteral("layout/detached")).toStringList();
     for (const QString &id : ids)
         detachImpl(id, std::nullopt);
+    // 面板：恢复面板里的会话和独立窗口（openInPanel 会切标签，恢复后还原）
+    const QString tab = m_panelTab;
+    const bool open = m_panelOpen;
+    const QString pconv = s.value(QStringLiteral("panel/conv")).toString();
+    if (!pconv.isEmpty() && !ids.contains(pconv) && pconv != sel)
+        openInPanel(pconv);
+    m_panelTab = tab;
+    m_panelOpen = open;
+    if (open && s.value(QStringLiteral("panel/detached"), false).toBool()) {
+        m_panelDetached = true;
+        createPanelWindow();
+    }
+    savePanel();
+    emit panelChanged();
     if (!ids.isEmpty())
         raiseWindow(m_mainWindow);
 }

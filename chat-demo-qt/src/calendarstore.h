@@ -26,11 +26,10 @@ class CalendarStore : public QObject
     Q_PROPERTY(int revision READ revision NOTIFY changed)
     Q_PROPERTY(QVariantList calendars READ calendars NOTIFY calendarsChanged)
     /// day | week | month | year | agenda
-    Q_PROPERTY(QString viewMode READ viewMode WRITE setViewMode NOTIFY settingsChanged)
-    Q_PROPERTY(bool showTodos READ showTodos WRITE setShowTodos NOTIFY settingsChanged)
-    Q_PROPERTY(bool showCompleted READ showCompleted WRITE setShowCompleted NOTIFY settingsChanged)
-    Q_PROPERTY(bool weekStartsMonday READ weekStartsMonday WRITE setWeekStartsMonday NOTIFY settingsChanged)
-    Q_PROPERTY(bool todoPanelOpen READ todoPanelOpen WRITE setTodoPanelOpen NOTIFY settingsChanged)
+    Q_PROPERTY(QString viewMode READ viewMode WRITE setViewMode NOTIFY viewModeChanged)
+    Q_PROPERTY(bool showTodos READ showTodos WRITE setShowTodos NOTIFY showTodosChanged)
+    Q_PROPERTY(bool showCompleted READ showCompleted WRITE setShowCompleted NOTIFY showCompletedChanged)
+    Q_PROPERTY(bool weekStartsMonday READ weekStartsMonday WRITE setWeekStartsMonday NOTIFY weekStartsMondayChanged)
     Q_PROPERTY(int openTodoCount READ openTodoCount NOTIFY changed)
 public:
     static CalendarStore *instance();
@@ -46,8 +45,6 @@ public:
     void setShowCompleted(bool v);
     bool weekStartsMonday() const { return m_weekStartsMonday; }
     void setWeekStartsMonday(bool v);
-    bool todoPanelOpen() const { return m_todoPanelOpen; }
-    void setTodoPanelOpen(bool v);
     int openTodoCount() const;
 
     // MARK: 查询
@@ -98,6 +95,9 @@ public:
     Q_INVOKABLE bool toggleTodo(const QString &uid);
     Q_INVOKABLE bool deleteTodo(const QString &uid);
 
+    /// 面板等日历视图之外的地方请求「打开条目详情」/「新建」，由 CalendarView 响应
+    Q_INVOKABLE void requestOpen(const QVariantMap &item) { emit openRequested(item); }
+    Q_INVOKABLE void requestCreate(const QString &kind) { emit createRequested(kind); }
     /// 通知点击：跳到该事件所在日期
     void reveal(const QString &key);
     /// 自测用：立即检查一次提醒
@@ -106,10 +106,16 @@ public:
 signals:
     void changed();
     void calendarsChanged();
-    void settingsChanged();
+    // 每个设置单独通知：共用一个信号会让切视图时所有读「周起始日」的绑定（年视图 500+ 个日期格）全部重算
+    void viewModeChanged();
+    void showTodosChanged();
+    void showCompletedChanged();
+    void weekStartsMondayChanged();
     void syncFinished(const QString &id, bool ok, const QString &error);
     void notificationRequested(const QString &key, const QString &title, const QString &body);
     void revealRequested(const QString &dateIso);
+    void openRequested(const QVariantMap &item);
+    void createRequested(const QString &kind);
 
 private:
     CalendarStore();
@@ -152,5 +158,4 @@ private:
     bool m_showTodos = true;
     bool m_showCompleted = false;
     bool m_weekStartsMonday = true;
-    bool m_todoPanelOpen = true;
 };

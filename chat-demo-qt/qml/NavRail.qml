@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import ChatDemo
+import "Icons.js" as Icons
 
 // 最左侧模块导航（类似飞书 / Slack 的竖向导航条）：消息、日历。
 Item {
@@ -63,17 +64,18 @@ Item {
         RailButton {
             id: chatBtn
             module: "chat"; label: "消息"; badge: ChatStore.totalUnread
-            // 聊天气泡
-            Rectangle {
-                anchors.centerIn: parent; anchors.verticalCenterOffset: -1
-                width: 21; height: 16; radius: 7
-                color: "transparent"; border.width: 2
-                border.color: chatBtn.active ? Theme.accent : Theme.textSecondary
-                Rectangle { x: 3; y: parent.height - 3; width: 6; height: 6; rotation: 45; color: parent.border.color }
-                Row {
-                    anchors.centerIn: parent; spacing: 3
-                    Repeater { model: 3; Rectangle { width: 3; height: 3; radius: 1.5; color: parent.parent.border.color } }
-                }
+            // 聊天气泡（矢量绘制，抗锯齿）：未选中 = 描边，选中 = 实心 + 反色的三个点
+            Canvas {
+                id: chatIcon
+                anchors.centerIn: parent
+                width: 24; height: 24
+                readonly property color c: chatBtn.active ? Theme.accent : Theme.textSecondary
+                readonly property bool filled: chatBtn.active
+                readonly property color dotColor: filled ? Theme.accentText : c
+                onCChanged: requestPaint()
+                onFilledChanged: requestPaint()
+                onDotColorChanged: requestPaint()
+                onPaint: Icons.chatBubble(getContext("2d"), c, dotColor, filled)
             }
         }
         RailButton {
@@ -94,5 +96,44 @@ Item {
                 }
             }
         }
+    }
+
+    // 底部：全局动态面板开关（⌘⇧P）
+    Item {
+        objectName: "railPanelToggle"
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 18
+        width: parent.width
+        height: 40
+        readonly property bool on: WindowManager.panelOpen
+        Rectangle {
+            anchors.centerIn: parent
+            width: 40; height: 36; radius: 11
+            color: panelMa.containsMouse ? Theme.hover : "transparent"
+            // 「侧边栏」图标：外框 + 右侧一栏，打开时右栏填充
+            Rectangle {
+                anchors.centerIn: parent
+                width: 20; height: 16; radius: 4
+                color: "transparent"
+                border.width: 1.8
+                border.color: parent.parent.on ? Theme.accent : Theme.textSecondary
+                Rectangle {
+                    x: parent.width - width - 3; y: 3
+                    width: 5; height: parent.height - 6; radius: 1.5
+                    color: parent.border.color
+                    opacity: parent.parent.parent.on ? 1 : 0.45
+                }
+            }
+        }
+        MouseArea {
+            id: panelMa
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: WindowManager.panelDetached ? WindowManager.attachPanel() : (WindowManager.panelOpen = !WindowManager.panelOpen)
+        }
+        ToolTip.visible: panelMa.containsMouse
+        ToolTip.delay: 500
+        ToolTip.text: (WindowManager.panelDetached ? "面板已在独立窗口，点击合并回来" : WindowManager.panelOpen ? "隐藏动态面板" : "显示动态面板") + "（⌘⇧P）"
     }
 }

@@ -37,6 +37,8 @@ ApplicationWindow {
     Shortcut { sequence: "Ctrl+Shift+O"; enabled: WindowManager.module === "chat"; onActivated: if (WindowManager.mainSelection !== "") WindowManager.detach(WindowManager.mainSelection) }
     Shortcut { sequence: "Ctrl+1"; onActivated: WindowManager.module = "chat" }
     Shortcut { sequence: "Ctrl+2"; onActivated: WindowManager.module = "calendar" }
+    // 动态面板：打开 / 关闭（已拆成独立窗口时 = 合并回来）
+    Shortcut { sequence: "Ctrl+Shift+P"; onActivated: WindowManager.panelDetached ? WindowManager.attachPanel() : (WindowManager.panelOpen = !WindowManager.panelOpen) }
     Shortcut { sequence: "Ctrl+Shift+D"; onActivated: Theme.toggle() }
     Shortcut { sequence: "Ctrl+W"; onActivated: WindowManager.module === "chat" && WindowManager.mainSelection !== "" ? WindowManager.select("") : win.close() }
     Shortcut { sequence: "Ctrl+Q"; onActivated: WindowManager.quitApp() }
@@ -68,16 +70,28 @@ ApplicationWindow {
             Layout.fillWidth: true
             Layout.fillHeight: true
 
+            // 日历页：启动后空闲时异步预加载（分帧创建，不阻塞 UI），切换时只改 visible，几乎零开销
             Loader {
                 id: calendarLoader
+                objectName: "calendarLoader"
                 anchors.fill: parent
-                active: WindowManager.module === "calendar"   // 首次进入后不再卸载（保留当前视图与日期）
+                asynchronous: true
+                active: false
+                visible: WindowManager.module === "calendar" && status === Loader.Ready
+                sourceComponent: CalendarView {}
+                Component.onCompleted: if (WindowManager.module === "calendar") { asynchronous = false; active = true }
+                Timer { interval: 800; running: !calendarLoader.active; onTriggered: calendarLoader.active = true }
                 Connections {
                     target: WindowManager
                     function onModuleChanged() { if (WindowManager.module === "calendar") calendarLoader.active = true }
                 }
-                visible: WindowManager.module === "calendar"
-                sourceComponent: CalendarView {}
+            }
+            // 预加载未完成时就切过来：显示一个轻量占位
+            Text {
+                anchors.centerIn: parent
+                visible: WindowManager.module === "calendar" && calendarLoader.status !== Loader.Ready
+                text: "正在打开日历…"
+                color: Theme.textTertiary
             }
 
             RowLayout {
@@ -118,15 +132,15 @@ ApplicationWindow {
                         Column {
                             anchors.centerIn: parent
                             spacing: 14
-                            visible: WindowManager.mainSelection === "" && WindowManager.ghost !== ""
-                                     && WindowManager.placementOf(WindowManager.ghost) === "detached"
+                            readonly property string where: WindowManager.ghost === "" ? "" : (WindowManager.panelConv, WindowManager.placementOf(WindowManager.ghost))   // 读 panelConv 只为在面板会话变化时重算
+                            visible: WindowManager.mainSelection === "" && (where === "detached" || where === "panel")
                             Text { text: "⧉"; font.pixelSize: 44; color: Theme.accent; opacity: 0.5; anchors.horizontalCenter: parent.horizontalCenter }
                             Text {
-                                text: "「" + ChatStore.title(WindowManager.ghost) + "」已在独立窗口打开"
+                                text: "「" + ChatStore.title(WindowManager.ghost) + "」已在" + (parent.where === "panel" ? "右侧面板" : "独立窗口") + "打开"
                                 color: Theme.textSecondary; font.pixelSize: Theme.fontBody
                                 anchors.horizontalCenter: parent.horizontalCenter
                             }
-                            MacButton { text: "前往该窗口"; anchors.horizontalCenter: parent.horizontalCenter; onClicked: WindowManager.select(WindowManager.ghost) }
+                            MacButton { text: parent.where === "panel" ? "移回这里" : "前往该窗口"; anchors.horizontalCenter: parent.horizontalCenter; onClicked: WindowManager.select(WindowManager.ghost) }
                         }
                         // 空态：未选择
                         Column {
@@ -139,6 +153,17 @@ ApplicationWindow {
                     }
                 }
             }
+        }
+
+        // 全局动态面板（停靠）。拆成独立窗口时这里卸载，由 PanelWindow 挂载同一个 SidePanel
+        Loader {
+            id: dockedPanel
+            objectName: "dockedPanel"
+            Layout.preferredWidth: 288
+            Layout.fillHeight: true
+            visible: active
+            active: WindowManager.panelOpen && !WindowManager.panelDetached
+            sourceComponent: SidePanel {}
         }
     }
 }

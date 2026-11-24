@@ -20,7 +20,9 @@ Item {
     signal titleClicked()
 
     readonly property var gridStart: Cal.monthGridStart(month, CalendarStore.weekStartsMonday)
+    property var busySource: null             // 外部批量算好的忙碌日（年视图一次算全年，避免 12 次查询）
     readonly property var busy: {
+        if (busySource !== null) return busySource
         CalendarStore.revision
         if (!showBusy) return ({})
         var r = CalendarStore.busyDays(Cal.iso(gridStart), Cal.iso(Cal.addDays(gridStart, 42)))

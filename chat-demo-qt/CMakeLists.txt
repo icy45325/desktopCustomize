@@ -26,6 +26,7 @@ qt_add_qml_module(ChatDemo
         src/selftest.h src/selftest.cpp
         src/ical.h src/ical.cpp
         src/calendarstore.h src/calendarstore.cpp
+        src/assistant.h src/assistant.cpp
     QML_FILES
         qml/Main.qml
         qml/ConversationList.qml
@@ -37,6 +38,7 @@ qt_add_qml_module(ChatDemo
         qml/Avatar.qml
         qml/NavRail.qml
         qml/CalUtil.js
+        qml/Icons.js
         qml/CalendarView.qml
         qml/CalSidebar.qml
         qml/MiniMonth.qml
@@ -53,6 +55,12 @@ qt_add_qml_module(ChatDemo
         qml/CheckCircle.qml
         qml/CalTextField.qml
         qml/CalCombo.qml
+        qml/SidePanel.qml
+        qml/PanelWindow.qml
+        qml/MeetingPanel.qml
+        qml/PanelCalendar.qml
+        qml/PanelChat.qml
+        qml/AssistantPanel.qml
     RESOURCES
         data/team-sample.ics
 )

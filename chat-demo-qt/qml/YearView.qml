@@ -10,6 +10,23 @@ Item {
     property var calendarView
     readonly property int year: calendarView.anchorDate.getFullYear()
     readonly property int cols: width > 760 ? 4 : 3
+    // 一次查询全年（含首尾溢出的周），12 个迷你月历共用
+    property var busy: ({})
+    function reload() {
+        var r = CalendarStore.busyDays(Cal.iso(new Date(year - 1, 11, 20)), Cal.iso(new Date(year + 1, 0, 12)))
+        var m = {}
+        for (var i = 0; i < r.length; ++i) m[r[i]] = true
+        busy = m
+        loadedYear = year
+        loadedRev = CalendarStore.revision
+    }
+    property int loadedYear: -1
+    property int loadedRev: -1
+    function refresh() { if ((visible || loadedRev < 0) && (loadedYear !== year || loadedRev !== CalendarStore.revision)) reload() }
+    onVisibleChanged: refresh()
+    onYearChanged: refresh()
+    Component.onCompleted: refresh()
+    Connections { target: CalendarStore; function onChanged() { yv.refresh() } }
 
     Flickable {
         anchors.fill: parent
@@ -34,6 +51,7 @@ Item {
                     month: new Date(yv.year, index, 1)
                     showNav: false
                     compactTitle: true
+                    busySource: yv.busy
                     selected: yv.calendarView.anchorDate
                     onPicked: (d) => yv.calendarView.showDay(d)
                     onTitleClicked: { yv.calendarView.anchorDate = new Date(yv.year, index, 1); yv.calendarView.setMode("month") }

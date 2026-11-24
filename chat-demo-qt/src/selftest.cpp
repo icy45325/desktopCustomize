@@ -1,5 +1,6 @@
 #include "selftest.h"
 
+#include "assistant.h"
 #include "calendarstore.h"
 #include "chatstore.h"
 #include "ical.h"
@@ -8,7 +9,9 @@
 #include "appdata.h"
 
 #include <QDir>
+#include <QElapsedTimer>
 #include <QEventLoop>
+#include <functional>
 #include <QFile>
 #include <QGuiApplication>
 #include <QQuickItem>
@@ -277,12 +280,142 @@ void icalTests()
           "serialize → parse 往返：待办字段一致");
 }
 
+
+// MARK: AI 小助手 + 动态面板
+
+void assistantTests()
+{
+    auto *as = Assistant::instance();
+    auto *cs = CalendarStore::instance();
+    const QDate mon(2026, 11, 23);   // 周一
+    auto pw = [&](const char *t) { return Assistant::parseWhen(QString::fromUtf8(t), mon); };
+    check(pw("明天下午3点 需求评审 1小时").from == mon.addDays(1) && pw("明天下午3点 需求评审 1小时").start == QTime(15, 0)
+              && pw("明天下午3点 需求评审 1小时").durationMin == 60 && pw("明天下午3点 需求评审 1小时").rest.contains("需求评审"),
+          "assistant: 解析「明天下午3点 … 1小时」");
+    check(pw("周五上午十点半").from == QDate(2026, 11, 27) && pw("周五上午十点半").start == QTime(10, 30), "assistant: 中文数字「十点半」+ 周几");
+    check(pw("下周三 14:00-15:30").from == QDate(2026, 12, 2) && pw("下周三 14:00-15:30").end == QTime(15, 30), "assistant: 下周三 + 时间区间");
+    check(pw("3点到5点").start == QTime(15, 0) && pw("3点到5点").end == QTime(17, 0), "assistant: 无时段词的「3点」按下午");
+    check(pw("12月5号").from == QDate(2026, 12, 5) && pw("本周").to == QDate(2026, 11, 30), "assistant: 月日 / 本周范围");
+    check(pw("一个半小时").durationMin == 90 && pw("半小时").durationMin == 30 && pw("45分钟").durationMin == 45, "assistant: 时长");
+
+    const QDateTime now(QDate::currentDate(), QTime(8, 0));
+    QVariantMap r = as->respond("今天有什么安排？", now);
+    check(r["text"].toString().contains("产品评审") && !r["items"].toList().isEmpty(), "assistant: 查今天的安排");
+    r = as->respond("下一个会议是什么？", now);
+    check(r["text"].toString().contains("下一个是") && r["items"].toList().size() == 1, "assistant: 下一个会议");
+    r = as->respond("今天下午有空吗", now);
+    check(r["text"].toString().contains("–") || r["text"].toString().contains("没有空档"), "assistant: 查空闲时段");
+    r = as->respond("明天下午4点 架构讨论 半小时", now);
+    const QString uid = r["action"].toMap()["uid"].toString();
+    const QVariantMap ev = cs->event(uid);
+    check(!uid.isEmpty() && ev["title"] == "架构讨论"
+              && QDateTime::fromMSecsSinceEpoch(qint64(ev["startMs"].toDouble())) == QDateTime(QDate::currentDate().addDays(1), QTime(16, 0))
+              && ev["endMs"].toDouble() - ev["startMs"].toDouble() == 30 * 60000.0, "assistant: 自然语言新建活动（标题 / 时间 / 时长）");
+    cs->deleteEvent(uid);
+    r = as->respond("提醒我周五交周报", now);
+    const QString tid = r["action"].toMap()["uid"].toString();
+    check(!tid.isEmpty() && cs->todo(tid)["title"] == "交周报" && !cs->todo(tid)["dueIso"].toString().isEmpty(), "assistant: 自然语言新建待办");
+    cs->deleteTodo(tid);
+    r = as->respond("本周的待办", now);
+    check(r["text"].toString().contains("待办"), "assistant: 查待办");
+
+    // 消息流 + 撤销
+    as->clear();
+    as->send("提醒我明天买咖啡豆");
+    wait(600);
+    const QVariantList msgs = as->messages();
+    check(msgs.size() == 2 && msgs[1].toMap()["text"].toString().contains("咖啡豆"), "assistant: send → 回复");
+    const QString t2 = msgs[1].toMap()["action"].toMap()["uid"].toString();
+    as->runAction(1);
+    check(cs->todo(t2).isEmpty() && as->messages()[1].toMap()["done"].toBool(), "assistant: 撤销");
+}
+
+void panelTests()
+{
+    auto *wm = WindowManager::instance();
+    assistantTests();
+    wm->setModule("calendar");
+    wm->setPanelOpen(true);
+    wm->setPanelTab("meetings");
+    wait(500);
+    check(findItem(wm->mainWindow(), "meetingPanel") && findItem(wm->mainWindow(), "meetingPanel")->isVisible(), "panel: 会议标签");
+    wm->setPanelTab("assistant");
+    wait(400);
+    check(findItem(wm->mainWindow(), "assistantPanel") && findItem(wm->mainWindow(), "assistantPanel")->isVisible(), "panel: 助手标签");
+
+    // 日历模块里在面板打开会话（Placement = panel，与主窗口互斥）
+    wm->setModule("chat");
+    wm->select("c2");
+    wait(300);
+    wm->setModule("calendar");
+    wm->openInPanel("c2");
+    wait(500);
+    check(wm->placementOf("c2") == "panel" && wm->panelConv() == "c2" && wm->mainSelection().isEmpty(), "panel: 会话移到面板（主窗口让出）");
+    QQuickItem *pin = draftInput(wm->mainWindow());
+    QQuickItem *panelChat = findItem(wm->mainWindow(), "panelChat");
+    check(panelChat && panelChat->isVisible() && pin && pin->isVisible(), "panel: 日历模块里显示聊天详情");
+    if (pin) { pin->setProperty("text", QStringLiteral("面板草稿")); wait(450); }
+    wm->select("c2");
+    wait(400);
+    check(wm->placementOf("c2") == "main" && wm->panelConv().isEmpty(), "panel: 在消息中打开 → 回到主窗口");
+    wm->setModule("chat");
+    wait(400);
+    QQuickItem *in = draftInput(wm->mainWindow());
+    check(in && in->property("text").toString() == "面板草稿", "panel: 草稿随会话迁移");
+
+    // 消息模块：面板显示日历；拆成独立窗口再合并
+    wm->setPanelTab("calendar");
+    wait(400);
+    check(findItem(wm->mainWindow(), "panelCalendar") && findItem(wm->mainWindow(), "panelCalendar")->isVisible(), "panel: 消息模块里显示日历");
+    wm->detachPanel();
+    wait(600);
+    check(wm->panelWindow() && !findItem(wm->mainWindow(), "sidePanel") && findItem(wm->panelWindow(), "sidePanel"), "panel: 拆成独立窗口（主窗口里卸载）");
+    if (const QString shot = qEnvironmentVariable("CHATDEMO_SHOT"); !shot.isEmpty() && wm->panelWindow())
+        wm->panelWindow()->grabWindow().save(shot + ".panel.window.light.png");
+    wm->attachPanel();
+    wait(400);
+    check(!wm->panelWindow() && findItem(wm->mainWindow(), "sidePanel"), "panel: 合并回主窗口");
+    wm->setPanelTab("todo");
+    wm->setModule("calendar");
+    wait(300);
+}
+
 QStringList titlesOn(const QDate &d)
 {
     QStringList r;
     for (const QVariant &v : CalendarStore::instance()->occurrences(d.toString(Qt::ISODate), d.addDays(1).toString(Qt::ISODate)))
         r << v.toMap().value("title").toString();
     return r;
+}
+
+// 性能：切模块、切视图（首次创建 / 再次访问）、数据变化的耗时（含一次完整重绘）。--selftest --perf
+void perfPhase()
+{
+    auto *wm = WindowManager::instance();
+    auto measure = [&](const char *what, std::function<void()> f) {
+        QElapsedTimer t; t.start();
+        f();
+        QCoreApplication::processEvents();
+        wm->mainWindow()->grabWindow();
+        qInfo("PERF %-28s %6lld ms", what, t.elapsed());
+    };
+    wm->setModule("chat"); wait(500);
+    measure("chat 重绘基线", [] {});
+    measure("首次切到日历", [&] { wm->setModule("calendar"); });
+    wait(300);
+    measure("切回消息", [&] { wm->setModule("chat"); });
+    wait(300);
+    measure("再次切到日历", [&] { wm->setModule("calendar"); });
+    wait(300);
+    measure("日历重绘基线（无变化）", [] {});
+    for (int round = 1; round <= 2; ++round)
+        for (const char *m : {"month", "day", "year", "agenda", "week"}) {
+            wait(300);
+            measure(qPrintable(QString("视图 → %1（第 %2 次）").arg(m).arg(round)), [&] { CalendarStore::instance()->setViewMode(m); });
+        }
+    wait(300);
+    measure("数据变化（新建待办）", [&] { CalendarStore::instance()->createTodo({{"title", "perf"}}); });
+    finish();
 }
 
 void calendarPhase()
@@ -379,8 +512,8 @@ void calendarPhase()
     for (const QString &m : modes) {
         cs->setViewMode(m);
         wait(500);
-        QQuickItem *loader = findItem(wm->mainWindow(), "viewLoader");
-        auto *item = loader ? loader->property("item").value<QQuickItem *>() : nullptr;
+        QQuickItem *host = findItem(wm->mainWindow(), "viewHost");
+        auto *item = host ? host->property("item").value<QQuickItem *>() : nullptr;
         check(item && item->objectName() == expect[m], qPrintable("UI: 切换到 " + m + " 视图"));
         if (!shot.isEmpty()) {
             wm->mainWindow()->grabWindow().save(shot + ".calendar." + m + ".light.png");
@@ -404,7 +537,29 @@ void calendarPhase()
     }
     check(blocks >= 5, "UI: 周视图渲染出事件块");
     QQuickItem *todoPanel = findItem(wm->mainWindow(), "todoPanel");
-    check(todoPanel && todoPanel->isVisible(), "UI: 待办面板显示");
+    check(todoPanel && todoPanel->isVisible(), "UI: 动态面板默认显示待办");
+    panelTests();
+    if (!shot.isEmpty()) {   // 面板各标签截图（日历模块）
+        wm->setModule("calendar");
+        for (const char *t : {"meetings", "assistant", "chat"}) {
+            if (QString(t) == "chat") wm->openInPanel("c2");
+            wm->setPanelTab(t);
+            wait(600);
+            wm->mainWindow()->grabWindow().save(shot + ".panel." + t + ".light.png");
+        }
+        wm->select("c2");   // 移回主窗口
+        wm->setModule("chat");
+        wm->setPanelTab("calendar");
+        wait(600);
+        wm->mainWindow()->grabWindow().save(shot + ".panel.calendar-in-chat.light.png");
+        wm->setDarkMode(true);
+        wait(600);
+        wm->mainWindow()->grabWindow().save(shot + ".panel.calendar-in-chat.dark.png");
+        wm->setDarkMode(false);
+        wm->setPanelTab("todo");
+        wm->setModule("calendar");
+        wait(400);
+    }
 
     // 编辑器截图
     if (!shot.isEmpty()) {
@@ -424,5 +579,5 @@ void calendarPhase()
 
 void SelfTest::schedule(int phase)
 {
-    QTimer::singleShot(1000, [phase] { phase == 3 ? calendarPhase() : phase == 1 ? phase1() : phase2(); });
+    QTimer::singleShot(1000, [phase] { phase == 4 ? perfPhase() : phase == 3 ? calendarPhase() : phase == 1 ? phase1() : phase2(); });
 }

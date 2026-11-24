@@ -129,14 +129,14 @@ Item {
                                 }
                                 // 已拆出标签
                                 Rectangle {
-                                    visible: del.placement === "detached"
+                                    visible: del.placement === "detached" || del.placement === "panel"
                                     radius: 7; implicitHeight: 16
                                     implicitWidth: detachedLabel.implicitWidth + 12
                                     color: Theme.accentSoft
                                     Text {
                                         id: detachedLabel
                                         anchors.centerIn: parent
-                                        text: "⧉ 独立窗口"
+                                        text: del.placement === "panel" ? "▥ 面板" : "⧉ 独立窗口"
                                         font.pixelSize: 10; font.bold: true
                                         color: Theme.accent
                                     }
@@ -214,6 +214,7 @@ Item {
                 Menu {
                     id: menu
                     MenuItem { text: "在新窗口打开"; onTriggered: WindowManager.detach(del.convId) }
+                    MenuItem { text: "在右侧面板打开"; onTriggered: WindowManager.openInPanel(del.convId) }
                 }
             }
         }

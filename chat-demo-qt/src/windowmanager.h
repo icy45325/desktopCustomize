@@ -30,7 +30,29 @@ class WindowManager : public QObject
     Q_PROPERTY(bool darkMode READ darkMode WRITE setDarkMode NOTIFY darkModeChanged)
     /// 主窗口当前模块："chat" | "calendar"，持久化到 layout.ini。
     Q_PROPERTY(QString module READ module WRITE setModule NOTIFY moduleChanged)
+    /// 右侧动态面板（全局，消息 / 日历两个模块共用）：是否打开、当前标签、是否拆成独立窗口、面板里打开的会话
+    Q_PROPERTY(bool panelOpen READ panelOpen WRITE setPanelOpen NOTIFY panelChanged)
+    Q_PROPERTY(QString panelTab READ panelTab WRITE setPanelTab NOTIFY panelChanged)
+    Q_PROPERTY(bool panelDetached READ panelDetached NOTIFY panelChanged)
+    Q_PROPERTY(QString panelConv READ panelConv NOTIFY panelChanged)
 public:
+    bool panelOpen() const { return m_panelOpen; }
+    void setPanelOpen(bool v);
+    QString panelTab() const { return m_panelTab; }
+    void setPanelTab(const QString &t);
+    bool panelDetached() const { return m_panelDetached; }
+    QString panelConv() const { return m_panelConv; }
+    /// 把面板拆成独立窗口 / 合并回主窗口
+    Q_INVOKABLE void detachPanel();
+    Q_INVOKABLE void attachPanel();
+    Q_INVOKABLE void panelWindowClosed();
+    /// 在面板里打开会话（Placement = panel）；已在独立窗口时只前置该窗口
+    Q_INVOKABLE void openInPanel(const QString &convId);
+    Q_INVOKABLE void closePanelConv();
+    /// 面板里点了日历条目 / 「在日历中打开」：切到日历模块并前置主窗口
+    Q_INVOKABLE void focusCalendar();
+    QQuickWindow *panelWindow() const { return m_panelWindow; }
+
     QString module() const { return m_module; }
     void setModule(const QString &m);
 
@@ -76,6 +98,7 @@ public:
 signals:
     void darkModeChanged();
     void moduleChanged();
+    void panelChanged();
     void mainSelectionChanged();
     void ghostChanged();
     void placementChanged(const QString &convId);
@@ -109,6 +132,14 @@ private:
     QString m_ghost;
     bool m_dark = false;
     QString m_module = QStringLiteral("chat");
+    bool m_panelOpen = true;
+    QString m_panelTab = QStringLiteral("todo");
+    bool m_panelDetached = false;
+    QString m_panelConv;
+    QPointer<QQuickWindow> m_panelWindow;
+    void setPanelConv(const QString &id);
+    void savePanel();
+    void createPanelWindow();
     bool m_terminating = false;
     bool m_restored = false;
 };

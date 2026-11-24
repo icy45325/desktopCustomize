@@ -9,7 +9,6 @@ import "CalUtil.js" as Cal
 Item {
     id: tp
     objectName: "todoPanel"
-    property var calendarView
     property string filter: "today"
 
     readonly property var rows: {
@@ -32,204 +31,188 @@ Item {
     }
     function count(f) { CalendarStore.revision; return CalendarStore.todos(f).length }
 
-    Card {
+    ColumnLayout {
         anchors.fill: parent
-        anchors.topMargin: 14; anchors.bottomMargin: 14; anchors.rightMargin: 14; anchors.leftMargin: 4
-        radius: 20
-        elevation: 1.0
+        spacing: 10
 
-        ColumnLayout {
-            anchors.fill: parent
-            anchors.margins: 14
-            spacing: 10
-
-            RowLayout {
-                Text { text: "待办"; font.pixelSize: 17; font.bold: true; color: Theme.text; Layout.fillWidth: true }
-                Text {
-                    text: "✕"; font.pixelSize: 13; color: closeMa.containsMouse ? Theme.text : Theme.textTertiary
-                    MouseArea { id: closeMa; anchors.fill: parent; anchors.margins: -6; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: CalendarStore.todoPanelOpen = false }
-                }
-            }
-
-            // 智能列表（2 × 2 卡片，同 macOS 提醒事项）
-            GridLayout {
-                Layout.fillWidth: true
-                columns: 2
-                columnSpacing: 8; rowSpacing: 8
-                Repeater {
-                    model: [{ k: "today", t: "今天", g: "◉" }, { k: "scheduled", t: "计划", g: "▦" },
-                            { k: "all", t: "全部", g: "☰" }, { k: "completed", t: "已完成", g: "✓" }]
-                    Rectangle {
-                        required property var modelData
-                        readonly property bool on: tp.filter === modelData.k
-                        objectName: "todoFilter-" + modelData.k
-                        Layout.fillWidth: true
-                        implicitHeight: 54
-                        radius: 12
-                        color: on ? Theme.accent : Theme.surface
-                        Behavior on color { ColorAnimation { duration: 160 } }
-                        Text { x: 10; y: 8; text: modelData.g; font.pixelSize: 15; color: parent.on ? Theme.accentText : Theme.accent }
-                        Text {
-                            anchors.right: parent.right; anchors.rightMargin: 10; y: 6
-                            text: tp.count(modelData.k)
-                            font.pixelSize: 18; font.bold: true
-                            color: parent.on ? Theme.accentText : Theme.text
-                        }
-                        Text { x: 10; anchors.bottom: parent.bottom; anchors.bottomMargin: 7; text: modelData.t; font.pixelSize: 12; font.bold: true
-                            color: parent.on ? Theme.accentText : Theme.textSecondary }
-                        MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: tp.filter = modelData.k }
-                    }
-                }
-            }
-
-            // 快速添加：回车保存。「今天」列表里添加的待办默认截止今天
-            Rectangle {
-                Layout.fillWidth: true
-                visible: tp.filter !== "completed"
-                implicitHeight: 34
-                radius: 10
-                color: Theme.input
-                border.width: 1
-                border.color: quickAdd.activeFocus ? Theme.accent : Theme.fieldBorder
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.leftMargin: 10; anchors.rightMargin: 6
-                    spacing: 6
-                    Text { text: "＋"; color: Theme.accent; font.pixelSize: 14 }
-                    TextField {
-                        id: quickAdd
-                        objectName: "todoQuickAdd"
-                        Layout.fillWidth: true
-                        background: null
-                        placeholderText: tp.filter === "today" ? "添加今天的待办，回车保存" : "添加待办，回车保存"
-                        placeholderTextColor: Theme.textTertiary
-                        color: Theme.text
-                        font.pixelSize: 12
-                        onAccepted: {
-                            if (text.trim() === "") return
-                            var m = { title: text, calendarId: CalendarStore.defaultTodoList() }
-                            if (tp.filter === "today" || tp.filter === "scheduled") m.dueIso = Cal.iso(Cal.today())
-                            CalendarStore.createTodo(m)
-                            text = ""
-                        }
-                    }
-                    Text {
-                        text: "⋯"; font.pixelSize: 14; color: moreMa.containsMouse ? Theme.accent : Theme.textTertiary
-                        MouseArea { id: moreMa; anchors.fill: parent; anchors.margins: -4; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                            onClicked: tp.calendarView.createAt(null, null, false, "todo") }
-                        ToolTip.visible: moreMa.containsMouse; ToolTip.text: "更多选项（截止时间、优先级、备注）"; ToolTip.delay: 500
-                    }
-                }
-            }
-
-            ListView {
-                id: lv
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                clip: true
-                model: tp.rows
-                spacing: 2
-                boundsBehavior: Flickable.StopAtBounds
-                ScrollBar.vertical: ScrollBar {}
-
-                delegate: Column {
-                    id: row
+        // 智能列表（2 × 2 卡片，同 macOS 提醒事项）
+        GridLayout {
+            Layout.fillWidth: true
+            columns: 2
+            columnSpacing: 8; rowSpacing: 8
+            Repeater {
+                model: [{ k: "today", t: "今天", g: "◉" }, { k: "scheduled", t: "计划", g: "▦" },
+                        { k: "all", t: "全部", g: "☰" }, { k: "completed", t: "已完成", g: "✓" }]
+                Rectangle {
                     required property var modelData
-                    readonly property var it: modelData.item
-                    width: lv.width
-                    spacing: 2
-
+                    readonly property bool on: tp.filter === modelData.k
+                    objectName: "todoFilter-" + modelData.k
+                    Layout.fillWidth: true
+                    implicitHeight: 54
+                    radius: 12
+                    color: on ? Theme.accent : Theme.surface
+                    Behavior on color { ColorAnimation { duration: 160 } }
+                    Text { x: 10; y: 8; text: modelData.g; font.pixelSize: 15; color: parent.on ? Theme.accentText : Theme.accent }
                     Text {
-                        visible: row.modelData.first
-                        topPadding: 8; bottomPadding: 2; leftPadding: 4
-                        text: row.modelData.group
-                        font.pixelSize: 11; font.bold: true
-                        color: row.modelData.group === "已逾期" ? Theme.danger : Theme.textTertiary
+                        anchors.right: parent.right; anchors.rightMargin: 10; y: 6
+                        text: tp.count(modelData.k)
+                        font.pixelSize: 18; font.bold: true
+                        color: parent.on ? Theme.accentText : Theme.text
                     }
-                    Rectangle {
-                        width: parent.width
-                        height: Math.max(40, content.implicitHeight + 14)
-                        radius: 10
-                        color: rowMa.containsMouse ? Theme.hover : "transparent"
-                        objectName: "todoRow"
+                    Text { x: 10; anchors.bottom: parent.bottom; anchors.bottomMargin: 7; text: modelData.t; font.pixelSize: 12; font.bold: true
+                        color: parent.on ? Theme.accentText : Theme.textSecondary }
+                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: tp.filter = modelData.k }
+                }
+            }
+        }
 
-                        MouseArea {
-                            id: rowMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: (m) => tp.calendarView.openItem(row.it, rowMa.mapToGlobal(m.x, m.y))
+        // 快速添加：回车保存。「今天」列表里添加的待办默认截止今天
+        Rectangle {
+            Layout.fillWidth: true
+            visible: tp.filter !== "completed"
+            implicitHeight: 34
+            radius: 10
+            color: Theme.input
+            border.width: 1
+            border.color: quickAdd.activeFocus ? Theme.accent : Theme.fieldBorder
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 10; anchors.rightMargin: 6
+                spacing: 6
+                Text { text: "＋"; color: Theme.accent; font.pixelSize: 14 }
+                TextField {
+                    id: quickAdd
+                    objectName: "todoQuickAdd"
+                    Layout.fillWidth: true
+                    background: null
+                    placeholderText: tp.filter === "today" ? "添加今天的待办，回车保存" : "添加待办，回车保存"
+                    placeholderTextColor: Theme.textTertiary
+                    color: Theme.text
+                    font.pixelSize: 12
+                    onAccepted: {
+                        if (text.trim() === "") return
+                        var m = { title: text, calendarId: CalendarStore.defaultTodoList() }
+                        if (tp.filter === "today" || tp.filter === "scheduled") m.dueIso = Cal.iso(Cal.today())
+                        CalendarStore.createTodo(m)
+                        text = ""
+                    }
+                }
+                Text {
+                    text: "⋯"; font.pixelSize: 14; color: moreMa.containsMouse ? Theme.accent : Theme.textTertiary
+                    MouseArea { id: moreMa; anchors.fill: parent; anchors.margins: -4; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                        onClicked: { WindowManager.focusCalendar(); CalendarStore.requestCreate("todo") } }
+                    ToolTip.visible: moreMa.containsMouse; ToolTip.text: "更多选项（截止时间、优先级、备注）"; ToolTip.delay: 500
+                }
+            }
+        }
+
+        ListView {
+            id: lv
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            clip: true
+            model: tp.rows
+            spacing: 2
+            boundsBehavior: Flickable.StopAtBounds
+            ScrollBar.vertical: ScrollBar {}
+
+            delegate: Column {
+                id: row
+                required property var modelData
+                readonly property var it: modelData.item
+                width: lv.width
+                spacing: 2
+
+                Text {
+                    visible: row.modelData.first
+                    topPadding: 8; bottomPadding: 2; leftPadding: 4
+                    text: row.modelData.group
+                    font.pixelSize: 11; font.bold: true
+                    color: row.modelData.group === "已逾期" ? Theme.danger : Theme.textTertiary
+                }
+                Rectangle {
+                    width: parent.width
+                    height: Math.max(40, content.implicitHeight + 14)
+                    radius: 10
+                    color: rowMa.containsMouse ? Theme.hover : "transparent"
+                    objectName: "todoRow"
+
+                    MouseArea {
+                        id: rowMa
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: { WindowManager.focusCalendar(); CalendarStore.requestOpen(row.it) }
+                    }
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: 6; anchors.rightMargin: 6
+                        spacing: 10
+                        CheckCircle {
+                            Layout.alignment: Qt.AlignTop
+                            Layout.topMargin: 9
+                            size: 18
+                            checked: row.it.done
+                            color: row.it.color
+                            readOnly: row.it.readOnly
+                            onToggled: CalendarStore.toggleTodo(row.it.uid)
                         }
-                        RowLayout {
-                            anchors.fill: parent
-                            anchors.leftMargin: 6; anchors.rightMargin: 6
-                            spacing: 10
-                            CheckCircle {
-                                Layout.alignment: Qt.AlignTop
-                                Layout.topMargin: 9
-                                size: 18
-                                checked: row.it.done
-                                color: row.it.color
-                                readOnly: row.it.readOnly
-                                onToggled: CalendarStore.toggleTodo(row.it.uid)
-                            }
-                            Column {
-                                id: content
-                                Layout.fillWidth: true
-                                spacing: 2
-                                Text {
-                                    width: parent.width
-                                    text: (Cal.priorityMark(row.it.priority) !== "" ? Cal.priorityMark(row.it.priority) + " " : "") + row.it.title
-                                    font.pixelSize: 13
-                                    font.strikeout: row.it.done
-                                    color: row.it.done ? Theme.textTertiary : Theme.text
-                                    wrapMode: Text.Wrap
-                                    maximumLineCount: 2
-                                    elide: Text.ElideRight
-                                }
-                                Text {
-                                    width: parent.width
-                                    visible: text !== ""
-                                    text: {
-                                        var parts = []
-                                        if (row.it.dueIso !== "") {
-                                            var d = Cal.parseIso(row.it.dueIso)
-                                            parts.push((Cal.relativeDay(d) || Cal.md(d)) + (row.it.dueTime !== "" ? " " + row.it.dueTime : ""))
-                                        }
-                                        if (row.it.notes !== "") parts.push(row.it.notes.split("\n")[0])
-                                        return parts.join(" · ")
-                                    }
-                                    font.pixelSize: 11
-                                    color: row.it.overdue ? Theme.danger : Theme.textSecondary
-                                    elide: Text.ElideRight
-                                }
-                                Row {
-                                    spacing: 4
-                                    Rectangle { width: 6; height: 6; radius: 3; color: row.it.color; anchors.verticalCenter: parent.verticalCenter }
-                                    Text { text: row.it.calendarName + (row.it.readOnly ? " · 只读" : ""); font.pixelSize: 10; color: Theme.textTertiary }
-                                }
+                        Column {
+                            id: content
+                            Layout.fillWidth: true
+                            spacing: 2
+                            Text {
+                                width: parent.width
+                                text: (Cal.priorityMark(row.it.priority) !== "" ? Cal.priorityMark(row.it.priority) + " " : "") + row.it.title
+                                font.pixelSize: 13
+                                font.strikeout: row.it.done
+                                color: row.it.done ? Theme.textTertiary : Theme.text
+                                wrapMode: Text.Wrap
+                                maximumLineCount: 2
+                                elide: Text.ElideRight
                             }
                             Text {
-                                visible: rowMa.containsMouse && !row.it.readOnly
-                                text: "✕"
+                                width: parent.width
+                                visible: text !== ""
+                                text: {
+                                    var parts = []
+                                    if (row.it.dueIso !== "") {
+                                        var d = Cal.parseIso(row.it.dueIso)
+                                        parts.push((Cal.relativeDay(d) || Cal.md(d)) + (row.it.dueTime !== "" ? " " + row.it.dueTime : ""))
+                                    }
+                                    if (row.it.notes !== "") parts.push(row.it.notes.split("\n")[0])
+                                    return parts.join(" · ")
+                                }
                                 font.pixelSize: 11
-                                color: delMa.containsMouse ? Theme.danger : Theme.textTertiary
-                                MouseArea { id: delMa; anchors.fill: parent; anchors.margins: -6; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                                    onClicked: CalendarStore.deleteTodo(row.it.uid) }
+                                color: row.it.overdue ? Theme.danger : Theme.textSecondary
+                                elide: Text.ElideRight
                             }
+                            Row {
+                                spacing: 4
+                                Rectangle { width: 6; height: 6; radius: 3; color: row.it.color; anchors.verticalCenter: parent.verticalCenter }
+                                Text { text: row.it.calendarName + (row.it.readOnly ? " · 只读" : ""); font.pixelSize: 10; color: Theme.textTertiary }
+                            }
+                        }
+                        Text {
+                            visible: rowMa.containsMouse && !row.it.readOnly
+                            text: "✕"
+                            font.pixelSize: 11
+                            color: delMa.containsMouse ? Theme.danger : Theme.textTertiary
+                            MouseArea { id: delMa; anchors.fill: parent; anchors.margins: -6; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                                onClicked: CalendarStore.deleteTodo(row.it.uid) }
                         }
                     }
                 }
             }
+        }
 
-            Text {
-                visible: tp.rows.length === 0
-                Layout.alignment: Qt.AlignHCenter
-                Layout.bottomMargin: 40
-                text: tp.filter === "today" ? "今天没有待办 🎉" : tp.filter === "completed" ? "还没有完成的待办" : "没有待办"
-                color: Theme.textSecondary
-                font.pixelSize: 12
-            }
+        Text {
+            visible: tp.rows.length === 0
+            Layout.alignment: Qt.AlignHCenter
+            Layout.bottomMargin: 40
+            text: tp.filter === "today" ? "今天没有待办 🎉" : tp.filter === "completed" ? "还没有完成的待办" : "没有待办"
+            color: Theme.textSecondary
+            font.pixelSize: 12
         }
     }
 }

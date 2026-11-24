@@ -13,12 +13,23 @@ Item {
     readonly property var gridStart: Cal.monthGridStart(anchorDate, CalendarStore.weekStartsMonday)
     // 只需要 5 行时不显示第 6 行
     readonly property int rows: Cal.addDays(gridStart, 35).getMonth() === anchorDate.getMonth() ? 6 : 5
-    readonly property var items: {
-        CalendarStore.revision
+    readonly property var stableStart: Cal.parseIso(gridKey.split("/")[0])   // 同一个月内点选日期不触发 42 个格子重算
+    readonly property string gridKey: Cal.iso(gridStart) + "/" + rows
+    property var items: []
+    property string loadedKey: ""
+    property int loadedRev: -1
+    function reload() {
         var from = Cal.iso(gridStart), to = Cal.iso(Cal.addDays(gridStart, rows * 7))
         var r = CalendarStore.occurrences(from, to)
-        return CalendarStore.showTodos ? r.concat(CalendarStore.todosInRange(from, to)) : r
+        items = CalendarStore.showTodos ? r.concat(CalendarStore.todosInRange(from, to)) : r
+        loadedKey = gridKey
+        loadedRev = CalendarStore.revision
     }
+    function refresh() { if ((visible || loadedRev < 0) && (loadedKey !== gridKey || loadedRev !== CalendarStore.revision)) reload() }
+    onVisibleChanged: refresh()
+    onGridKeyChanged: refresh()
+    Component.onCompleted: refresh()
+    Connections { target: CalendarStore; function onChanged() { mv.refresh() } }
 
     ColumnLayout {
         anchors.fill: parent
@@ -55,7 +66,7 @@ Item {
                 Item {
                     id: cell
                     required property int index
-                    readonly property var date: Cal.addDays(mv.gridStart, index)
+                    readonly property var date: Cal.addDays(mv.stableStart, index)
                     readonly property string dayIso: Cal.iso(date)
                     readonly property bool inMonth: date.getMonth() === mv.anchorDate.getMonth()
                     readonly property bool isToday: Cal.isToday(date)

@@ -19,26 +19,39 @@ Item {
     readonly property real dayW: (width - gutter - 10) / days
     property real nowMin: Cal.minutesOfDay(new Date())
 
-    readonly property var dayList: { var r = []; for (var i = 0; i < days; ++i) r.push(Cal.addDays(startDate, i)); return r }
-    readonly property var items: {
-        CalendarStore.revision
-        var from = Cal.iso(startDate), to = Cal.iso(Cal.addDays(startDate, days))
+    // 用字符串做 key：startDate 每次重算都是新的 Date 对象，直接依赖它会让整个网格无谓重建
+    readonly property string rangeKey: Cal.iso(startDate) + "/" + days
+    readonly property var dayList: { var p = rangeKey.split("/"), s = Cal.parseIso(p[0]), r = []; for (var i = 0; i < +p[1]; ++i) r.push(Cal.addDays(s, i)); return r }
+    property var items: []
+    property var topLists: []          // 每天的全天栏条目（全天 / 跨天事件 + 待办）
+    property int maxTop: 0
+    function reload() {
+        var start = Cal.parseIso(rangeKey.split("/")[0])   // 不依赖 dayList：初始化顺序里它可能还没算好
+        var from = Cal.iso(start), to = Cal.iso(Cal.addDays(start, days))
         var r = CalendarStore.occurrences(from, to)
-        return CalendarStore.showTodos ? r.concat(CalendarStore.todosInRange(from, to)) : r
-    }
-    function topItems(day) {   // 全天栏：全天 / 跨天事件 + 待办
-        var iso = Cal.iso(day), r = []
-        for (var i = 0; i < items.length; ++i) {
-            var it = items[i]
-            if ((it.type === "todo" || Cal.isBanner(it)) && Cal.coversDay(it, iso)) r.push(it)
+        if (CalendarStore.showTodos) r = r.concat(CalendarStore.todosInRange(from, to))
+        var lists = [], m = 0
+        for (var d = 0; d < days; ++d) {
+            var iso = Cal.iso(Cal.addDays(start, d)), l = []
+            for (var i = 0; i < r.length; ++i)
+                if ((r[i].type === "todo" || Cal.isBanner(r[i])) && Cal.coversDay(r[i], iso)) l.push(r[i])
+            lists.push(l)
+            m = Math.max(m, l.length)
         }
-        return r
+        items = r
+        topLists = lists
+        maxTop = m
+        loadedKey = rangeKey
+        loadedRev = CalendarStore.revision
     }
-    readonly property int maxTop: {
-        var m = 0
-        for (var i = 0; i < dayList.length; ++i) m = Math.max(m, topItems(dayList[i]).length)
-        return m
-    }
+    // 只在可见、且范围或数据版本变化时重载；隐藏期间的变化等重新可见时补一次
+    property string loadedKey: ""
+    property int loadedRev: -1
+    function refresh() { if ((visible || loadedRev < 0) && (loadedKey !== rangeKey || loadedRev !== CalendarStore.revision)) reload() }
+    onVisibleChanged: refresh()
+    onRangeKeyChanged: refresh()
+    Component.onCompleted: refresh()
+    Connections { target: CalendarStore; function onChanged() { tg.refresh() } }
     readonly property int topRows: Math.min(maxTop, days === 1 ? 8 : 4)
 
     Timer { interval: 60000; running: true; repeat: true; onTriggered: tg.nowMin = Cal.minutesOfDay(new Date()) }
@@ -107,7 +120,8 @@ Item {
                 Item {
                     id: topCell
                     required property var modelData
-                    readonly property var list: tg.topItems(modelData)
+                    required property int index
+                    readonly property var list: tg.topLists[index] || []
                     width: tg.dayW; height: parent.height
                     Rectangle { width: 1; height: parent.height; color: Theme.gridLine }
                     MouseArea {   // 双击全天栏空白 = 新建全天活动

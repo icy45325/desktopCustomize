@@ -12,8 +12,16 @@ Item {
     property string query: ""
     property int span: 30
 
-    readonly property var rows: {
-        CalendarStore.revision
+    property var rows: []
+    readonly property string rangeKey: query + "|" + Cal.iso(calendarView.anchorDate) + "|" + span
+    property string loadedKey: ""
+    property int loadedRev: -1
+    function refresh() { if ((visible || loadedRev < 0) && (loadedKey !== rangeKey || loadedRev !== CalendarStore.revision)) reload() }
+    onVisibleChanged: refresh()
+    onRangeKeyChanged: refresh()
+    Component.onCompleted: refresh()
+    Connections { target: CalendarStore; function onChanged() { av.refresh() } }
+    function reload() {
         var list
         if (query !== "") {
             list = CalendarStore.search(query)
@@ -50,7 +58,9 @@ Item {
             })
             for (j = 0; j < arr.length; ++j) out.push({ day: days[i], first: j === 0, item: arr[j] })
         }
-        return out
+        rows = out
+        loadedKey = rangeKey
+        loadedRev = CalendarStore.revision
     }
 
     ListView {

@@ -39,7 +39,7 @@ int main(int argc, char *argv[])
 
     const QStringList args = app.arguments();
     if (args.contains(QStringLiteral("--selftest")))
-        SelfTest::schedule(args.contains(QStringLiteral("--calendar")) ? 3 : args.contains(QStringLiteral("--phase2")) ? 2 : 1);
+        SelfTest::schedule(args.contains(QStringLiteral("--perf")) ? 4 : args.contains(QStringLiteral("--calendar")) ? 3 : args.contains(QStringLiteral("--phase2")) ? 2 : 1);
 
     return app.exec();
 }

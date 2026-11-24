@@ -64,12 +64,11 @@ void CalendarStore::setViewMode(const QString &v)
     if (m_viewMode == v || !modes.contains(v)) return;
     m_viewMode = v;
     saveMeta();
-    emit settingsChanged();
+    emit viewModeChanged();
 }
-void CalendarStore::setShowTodos(bool v) { if (m_showTodos != v) { m_showTodos = v; saveMeta(); emit settingsChanged(); bump(); } }
-void CalendarStore::setShowCompleted(bool v) { if (m_showCompleted != v) { m_showCompleted = v; saveMeta(); emit settingsChanged(); bump(); } }
-void CalendarStore::setWeekStartsMonday(bool v) { if (m_weekStartsMonday != v) { m_weekStartsMonday = v; saveMeta(); emit settingsChanged(); bump(); } }
-void CalendarStore::setTodoPanelOpen(bool v) { if (m_todoPanelOpen != v) { m_todoPanelOpen = v; saveMeta(); emit settingsChanged(); } }
+void CalendarStore::setShowTodos(bool v) { if (m_showTodos != v) { m_showTodos = v; saveMeta(); emit showTodosChanged(); bump(); } }
+void CalendarStore::setShowCompleted(bool v) { if (m_showCompleted != v) { m_showCompleted = v; saveMeta(); emit showCompletedChanged(); bump(); } }
+void CalendarStore::setWeekStartsMonday(bool v) { if (m_weekStartsMonday != v) { m_weekStartsMonday = v; saveMeta(); emit weekStartsMondayChanged(); bump(); } }
 
 void CalendarStore::bump() { ++m_revision; emit changed(); }
 void CalendarStore::bumpCalendars() { emit calendarsChanged(); bump(); }
@@ -682,8 +681,7 @@ void CalendarStore::saveMeta()
                             {"lastSync", c.lastSync.toString(Qt::ISODate)}, {"lastError", c.lastError}};
     const QJsonObject root{{"calendars", cals},
                            {"settings", QJsonObject{{"viewMode", m_viewMode}, {"showTodos", m_showTodos},
-                                                    {"showCompleted", m_showCompleted}, {"weekStartsMonday", m_weekStartsMonday},
-                                                    {"todoPanelOpen", m_todoPanelOpen}}}};
+                                                    {"showCompleted", m_showCompleted}, {"weekStartsMonday", m_weekStartsMonday}}}};
     QDir().mkpath(calDir());
     QSaveFile f(calDir() + QStringLiteral("/calendars.json"));
     if (f.open(QIODevice::WriteOnly)) {
@@ -705,7 +703,6 @@ void CalendarStore::load()
     m_showTodos = s["showTodos"].toBool(m_showTodos);
     m_showCompleted = s["showCompleted"].toBool(m_showCompleted);
     m_weekStartsMonday = s["weekStartsMonday"].toBool(m_weekStartsMonday);
-    m_todoPanelOpen = s["todoPanelOpen"].toBool(m_todoPanelOpen);
     for (const QJsonValue &v : root["calendars"].toArray()) {
         const QJsonObject o = v.toObject();
         Cal c;
@@ -759,6 +756,10 @@ void CalendarStore::seed()
                 << ev(QStringLiteral("客户拜访"), at(2, 13, 0), at(2, 17, 0), QStringLiteral("科技园 B 座"), 30)
                 << ev(QStringLiteral("版本发布"), at(-2, 16, 0), at(-2, 17, 30), {}, 10)
                 << allDay(QStringLiteral("上海出差"), 3, 2);
+    // 示例会议链接（「加入会议」按钮用）
+    work.events[0].url = QStringLiteral("https://meet.example.com/standup");
+    work.events[1].url = QStringLiteral("https://meet.example.com/product-review");
+    work.events[3].url = QStringLiteral("https://meet.example.com/one-on-one");
     work.todos << todo(QStringLiteral("准备评审材料"), 0, QTime(9, 0), 1, true)
                << todo(QStringLiteral("提交周报"), 0, QTime(18, 0), 5, false, QStringLiteral("本周进展 + 下周计划"));
 

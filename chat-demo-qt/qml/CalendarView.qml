@@ -88,6 +88,20 @@ Item {
         }
     }
 
+    // 面板 / 助手等日历视图之外的地方：打开条目详情、新建
+    Connections {
+        target: CalendarStore
+        function onOpenRequested(item) {
+            var iso = item.type === "todo" ? item.dueIso : item.startIso
+            if (iso) calRoot.anchorDate = Cal.parseIso(iso)
+            if (calRoot.mode === "year") CalendarStore.viewMode = "day"
+            calRoot.searchText = ""; searchField.text = ""
+            // 详情气泡放在视图区中间偏上
+            Qt.callLater(function () { detail.show(item, calRoot.width / 2 - 60, 150) })
+        }
+        function onCreateRequested(kind) { calRoot.createAt(null, null, false, kind) }
+    }
+
     // MARK: 快捷键（Google Calendar 风格；文本框聚焦时字母键交给输入框）
     readonly property bool keysEnabled: visible && !popupOpen && !searchField.activeFocus
     Shortcut { sequence: "T"; enabled: calRoot.keysEnabled; onActivated: calRoot.goToday() }
@@ -118,7 +132,7 @@ Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.topMargin: 14; Layout.bottomMargin: 14
-            Layout.leftMargin: 4; Layout.rightMargin: CalendarStore.todoPanelOpen ? 4 : 14
+            Layout.leftMargin: 4; Layout.rightMargin: WindowManager.panelOpen && !WindowManager.panelDetached ? 4 : 14
             radius: 20
             elevation: 1.3
 
@@ -233,9 +247,15 @@ Item {
                         circular: true
                         text: "☑"
                         font.pixelSize: 15
-                        primary: CalendarStore.todoPanelOpen
-                        onClicked: CalendarStore.todoPanelOpen = !CalendarStore.todoPanelOpen
-                        ToolTip.visible: hovered; ToolTip.text: CalendarStore.todoPanelOpen ? "隐藏待办面板" : "显示待办面板"; ToolTip.delay: 500
+                        // 打开动态面板并切到「待办」；已在「待办」时再点 = 关闭
+                        readonly property bool showing: WindowManager.panelOpen && WindowManager.panelTab === "todo"
+                        primary: showing
+                        onClicked: {
+                            if (showing && !WindowManager.panelDetached) { WindowManager.panelOpen = false; return }
+                            WindowManager.panelTab = "todo"
+                            WindowManager.panelOpen = true
+                        }
+                        ToolTip.visible: hovered; ToolTip.text: showing ? "隐藏待办" : "在右侧面板显示待办"; ToolTip.delay: 500
                         Rectangle {
                             visible: CalendarStore.openTodoCount > 0
                             x: parent.width - width / 2 - 3; y: -4
@@ -249,32 +269,36 @@ Item {
                 Rectangle { Layout.fillWidth: true; height: 1; color: Theme.gridLine }
 
                 // MARK: 视图
-                Loader {
-                    id: viewLoader
-                    objectName: "viewLoader"
+                // 每种视图首次使用时创建，之后保留（隐藏时不刷新数据，重新可见时才补刷新），切换视图不再重建整棵树
+                Item {
+                    id: viewHost
+                    objectName: "viewHost"
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    sourceComponent: calRoot.searchText !== "" ? agendaComp
-                                   : calRoot.mode === "day" || calRoot.mode === "week" ? gridComp
-                                   : calRoot.mode === "month" ? monthComp
-                                   : calRoot.mode === "year" ? yearComp
-                                   : agendaComp
+                    readonly property string current: calRoot.searchText !== "" ? "agenda"
+                                                    : calRoot.mode === "day" || calRoot.mode === "week" ? "grid" : calRoot.mode
+                    // 自测用：当前显示的视图
+                    readonly property Item item: current === "grid" ? gridLoader.item : current === "month" ? monthLoader.item
+                                               : current === "year" ? yearLoader.item : agendaLoader.item
+
+                    component ViewLoader: Loader {
+                        property string key
+                        // 用显式条件而非 visible：日历页在后台预加载时（整页不可见）当前视图也要一并建好
+                        readonly property bool wanted: viewHost.current === key
+                        anchors.fill: parent
+                        active: false
+                        visible: wanted
+                        onWantedChanged: if (wanted) active = true
+                        Component.onCompleted: if (wanted) active = true
+                    }
+                    ViewLoader { id: gridLoader; key: "grid"; sourceComponent: TimeGridView { calendarView: calRoot; days: calRoot.mode === "day" ? 1 : 7; startDate: calRoot.rangeStart } }
+                    ViewLoader { id: monthLoader; key: "month"; sourceComponent: MonthView { calendarView: calRoot } }
+                    ViewLoader { id: yearLoader; key: "year"; sourceComponent: YearView { calendarView: calRoot } }
+                    ViewLoader { id: agendaLoader; key: "agenda"; sourceComponent: AgendaView { calendarView: calRoot; query: calRoot.searchText } }
                 }
             }
         }
-
-        TodoPanel {
-            visible: CalendarStore.todoPanelOpen
-            Layout.preferredWidth: 272
-            Layout.fillHeight: true
-            calendarView: calRoot
-        }
     }
-
-    Component { id: gridComp; TimeGridView { calendarView: calRoot; days: calRoot.mode === "day" ? 1 : 7; startDate: calRoot.rangeStart } }
-    Component { id: monthComp; MonthView { calendarView: calRoot } }
-    Component { id: yearComp; YearView { calendarView: calRoot } }
-    Component { id: agendaComp; AgendaView { calendarView: calRoot; query: calRoot.searchText } }
 
     EventEditor { id: editor; objectName: "eventEditor" }
     EventDetail { id: detail; objectName: "eventDetail"; calendarView: calRoot }

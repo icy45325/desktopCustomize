@@ -11,6 +11,7 @@ DTSTART;TZID=Asia/Shanghai:20260108T160000
 DTEND;TZID=Asia/Shanghai:20260108T170000
 RRULE:FREQ=WEEKLY;BYDAY=TH
 SUMMARY:全员周会
+URL:https://meet.example.com/all-hands
 LOCATION:大会议室 / 线上
 DESCRIPTION:议程：\n1. 本周进展\n2. 风险\, 依赖与求助\n3. 下周计划
 END:VEVENT

@@ -10,6 +10,7 @@ Item {
     objectName: "chatView"
     property string convId
     property bool detached: false
+    property bool compact: false          // 在动态面板里：不显示标题栏（面板自带），留白更小
 
     property string token: ""
     property var st: UIStateStore.state(convId)
@@ -20,7 +21,7 @@ Item {
     readonly property bool activeVisible: Window.window !== null && Window.active
                                           && Window.visibility !== Window.Minimized
                                           && Qt.application.state === Qt.ApplicationActive
-                                          && (detached || WindowManager.module === "chat")   // 主窗口切到日历时不算可见
+                                          && root.visible   // 实际可见（主窗口切到日历 / 面板切走标签时不算）
     readonly property bool canMarkRead: activeVisible && st.atBottom
 
     onActiveVisibleChanged: {
@@ -146,7 +147,8 @@ Item {
         // 标题栏：头像 + 标题/成员 + 右侧胶囊按钮
         Item {
             Layout.fillWidth: true
-            implicitHeight: 60
+            visible: !root.compact
+            implicitHeight: root.compact ? 0 : 60
             RowLayout {
                 anchors.fill: parent
                 anchors.leftMargin: 18; anchors.rightMargin: 14
@@ -186,7 +188,7 @@ Item {
             Layout.fillHeight: true
             clip: true
             spacing: 10
-            leftMargin: 18; rightMargin: 18; topMargin: 12; bottomMargin: 12
+            leftMargin: root.compact ? 6 : 18; rightMargin: root.compact ? 6 : 18; topMargin: 12; bottomMargin: 12
             model: root.msgs
             boundsBehavior: Flickable.StopAtBounds
             ScrollBar.vertical: ScrollBar {
