@@ -18,12 +18,12 @@ Item {
         var t = Cal.iso(Cal.today()), tm = Cal.iso(Cal.addDays(Cal.today(), 1))
         for (var i = 0; i < list.length; ++i) {
             var it = list[i], g
-            if (filter === "completed") g = "已完成"
-            else if (it.dueIso === "") g = "无日期"
-            else if (it.dueIso < t) g = "已逾期"
-            else if (it.dueIso === t) g = "今天"
-            else if (it.dueIso === tm) g = "明天"
-            else g = "以后"
+            if (filter === "completed") g = qsTr("已完成")
+            else if (it.dueIso === "") g = qsTr("无日期")
+            else if (it.dueIso < t) g = qsTr("已逾期")
+            else if (it.dueIso === t) g = qsTr("今天")
+            else if (it.dueIso === tm) g = qsTr("明天")
+            else g = qsTr("以后")
             out.push({ group: g, first: g !== last, item: it })
             last = g
         }
@@ -41,8 +41,8 @@ Item {
             columns: 2
             columnSpacing: 8; rowSpacing: 8
             Repeater {
-                model: [{ k: "today", t: "今天", g: "◉" }, { k: "scheduled", t: "计划", g: "▦" },
-                        { k: "all", t: "全部", g: "☰" }, { k: "completed", t: "已完成", g: "✓" }]
+                model: [{ k: "today", t: qsTr("今天"), g: "◉" }, { k: "scheduled", t: qsTr("计划"), g: "▦" },
+                        { k: "all", t: qsTr("全部"), g: "☰" }, { k: "completed", t: qsTr("已完成"), g: "✓" }]
                 Rectangle {
                     required property var modelData
                     readonly property bool on: tp.filter === modelData.k
@@ -79,13 +79,13 @@ Item {
                 anchors.fill: parent
                 anchors.leftMargin: 10; anchors.rightMargin: 6
                 spacing: 6
-                Text { text: "＋"; color: Theme.accent; font.pixelSize: 14 }
+                Text { text: qsTr("＋"); color: Theme.accent; font.pixelSize: 14 }
                 TextField {
                     id: quickAdd
                     objectName: "todoQuickAdd"
                     Layout.fillWidth: true
                     background: null
-                    placeholderText: tp.filter === "today" ? "添加今天的待办，回车保存" : "添加待办，回车保存"
+                    placeholderText: tp.filter === "today" ? qsTr("添加今天的待办，回车保存") : qsTr("添加待办，回车保存")
                     placeholderTextColor: Theme.textTertiary
                     color: Theme.text
                     font.pixelSize: 12
@@ -101,7 +101,7 @@ Item {
                     text: "⋯"; font.pixelSize: 14; color: moreMa.containsMouse ? Theme.accent : Theme.textTertiary
                     MouseArea { id: moreMa; anchors.fill: parent; anchors.margins: -4; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                         onClicked: { WindowManager.focusCalendar(); CalendarStore.requestCreate("todo") } }
-                    ToolTip.visible: moreMa.containsMouse; ToolTip.text: "更多选项（截止时间、优先级、备注）"; ToolTip.delay: 500
+                    ToolTip.visible: moreMa.containsMouse; ToolTip.text: qsTr("更多选项（截止时间、优先级、备注）"); ToolTip.delay: 500
                 }
             }
         }
@@ -128,7 +128,7 @@ Item {
                     topPadding: 8; bottomPadding: 2; leftPadding: 4
                     text: row.modelData.group
                     font.pixelSize: 11; font.bold: true
-                    color: row.modelData.group === "已逾期" ? Theme.danger : Theme.textTertiary
+                    color: row.modelData.group === qsTr("已逾期") ? Theme.danger : Theme.textTertiary
                 }
                 Rectangle {
                     width: parent.width
@@ -190,7 +190,7 @@ Item {
                             Row {
                                 spacing: 4
                                 Rectangle { width: 6; height: 6; radius: 3; color: row.it.color; anchors.verticalCenter: parent.verticalCenter }
-                                Text { text: row.it.calendarName + (row.it.readOnly ? " · 只读" : ""); font.pixelSize: 10; color: Theme.textTertiary }
+                                Text { text: row.it.calendarName + (row.it.readOnly ? qsTr(" · 只读") : ""); font.pixelSize: 10; color: Theme.textTertiary }
                             }
                         }
                         Text {
@@ -210,7 +210,7 @@ Item {
             visible: tp.rows.length === 0
             Layout.alignment: Qt.AlignHCenter
             Layout.bottomMargin: 40
-            text: tp.filter === "today" ? "今天没有待办 🎉" : tp.filter === "completed" ? "还没有完成的待办" : "没有待办"
+            text: tp.filter === "today" ? qsTr("今天没有待办 🎉") : tp.filter === "completed" ? qsTr("还没有完成的待办") : qsTr("没有待办")
             color: Theme.textSecondary
             font.pixelSize: 12
         }

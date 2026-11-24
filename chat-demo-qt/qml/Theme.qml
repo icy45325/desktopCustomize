@@ -5,8 +5,8 @@ import ChatDemo
 // 两套色板：Light 取自方案 C（柔和渐变底 + 紫色强调），Dark 取自方案 B（深空底 + 青绿霓虹）。
 // 所有颜色带 Behavior，切换主题时整体渐变过渡。
 QtObject {
-    readonly property bool dark: WindowManager.darkMode
-    function toggle() { WindowManager.darkMode = !WindowManager.darkMode }
+    readonly property bool dark: Settings.dark          // 浅色 / 深色 / 跟随系统，见 AppSettings
+    function toggle() { Settings.toggleDark() }
 
     // 强调色
     property color accent: dark ? "#5EEAD4" : "#6C5CE7"

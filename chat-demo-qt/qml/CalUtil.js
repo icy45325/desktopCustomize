@@ -1,8 +1,17 @@
 .pragma library
 
 // 日历视图共用的日期工具。所有 Date 都按本地时间处理；与 C++ 之间用 "yyyy-MM-dd" 字符串 / 毫秒时间戳交换。
+// 日期格式随界面语言变化（中文「11月23日 周一」/ 英文「Mon, Nov 23」），由 Main.qml 调用 setLang() 设置。
 
-var weekdayShort = ["日", "一", "二", "三", "四", "五", "六"]
+var lang = "zh"
+function setLang(l) { lang = l === "en" ? "en" : "zh" }
+function isEn() { return lang === "en" }
+
+var weekdayZh = ["日", "一", "二", "三", "四", "五", "六"]
+var weekdayEn = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+var weekdayEnNarrow = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]
+var monthEn = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+var monthEnLong = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
 var DAY_MS = 86400000
 
 function pad(n) { return n < 10 ? "0" + n : "" + n }
@@ -27,9 +36,13 @@ function startOfWeek(d, mondayFirst) {
     return addDays(d, -off)
 }
 function monthGridStart(d, mondayFirst) { return startOfWeek(new Date(d.getFullYear(), d.getMonth(), 1), mondayFirst) }
-function weekdayLabels(mondayFirst) {
+// narrow：迷你月历列头（一 / Mo）；否则：月视图列头（周一 / Mon）
+function weekdayLabels(mondayFirst, narrow) {
     var r = []
-    for (var i = 0; i < 7; ++i) r.push(weekdayShort[(i + (mondayFirst ? 1 : 0)) % 7])
+    for (var i = 0; i < 7; ++i) {
+        var k = (i + (mondayFirst ? 1 : 0)) % 7
+        r.push(isEn() ? (narrow ? weekdayEnNarrow[k] : weekdayEn[k]) : (narrow ? weekdayZh[k] : "周" + weekdayZh[k]))
+    }
     return r
 }
 // ISO 8601 周数
@@ -42,29 +55,35 @@ function weekNumber(d) {
 
 function hm(ms) { var d = new Date(ms); return pad(d.getHours()) + ":" + pad(d.getMinutes()) }
 function minutesOfDay(d) { return d.getHours() * 60 + d.getMinutes() }
-function md(d) { return (d.getMonth() + 1) + "月" + d.getDate() + "日" }
-function ymd(d) { return d.getFullYear() + "年" + md(d) }
-function weekdayName(d) { return "周" + weekdayShort[d.getDay()] }
+function md(d) { return isEn() ? monthEn[d.getMonth()] + " " + d.getDate() : (d.getMonth() + 1) + "月" + d.getDate() + "日" }
+function ymd(d) { return isEn() ? md(d) + ", " + d.getFullYear() : d.getFullYear() + "年" + md(d) }
+function ym(d) { return isEn() ? monthEnLong[d.getMonth()] + " " + d.getFullYear() : d.getFullYear() + "年" + (d.getMonth() + 1) + "月" }
+function monthShort(d) { return isEn() ? monthEn[d.getMonth()] : (d.getMonth() + 1) + "月" }
+function yearText(y) { return isEn() ? "" + y : y + "年" }
+function weekdayName(d) { return isEn() ? weekdayEn[d.getDay()] : "周" + weekdayZh[d.getDay()] }
+// 「周一 11月23日」/「Mon, Nov 23」
+function dayTitle(d) { return isEn() ? weekdayName(d) + ", " + md(d) : md(d) + " " + weekdayName(d) }
 
 function relativeDay(d) {
     var diff = Math.round((dayStart(d) - today()) / DAY_MS)
-    if (diff === 0) return "今天"
-    if (diff === 1) return "明天"
-    if (diff === -1) return "昨天"
-    if (diff === 2) return "后天"
+    if (diff === 0) return isEn() ? "Today" : "今天"
+    if (diff === 1) return isEn() ? "Tomorrow" : "明天"
+    if (diff === -1) return isEn() ? "Yesterday" : "昨天"
+    if (diff === 2 && !isEn()) return "后天"
     return ""
 }
 
 // 「11月23日 周一 10:00 – 11:00」/「11月23日 – 25日（全天）」
 function rangeText(item) {
     var s = new Date(item.startMs), e = new Date(item.endMs)
+    var allDayText = isEn() ? " · All day" : " · 全天"
     if (item.allDay) {
         var last = parseIso(item.lastIso)
-        if (sameDay(s, last)) return md(s) + " " + weekdayName(s) + " · 全天"
-        return md(s) + " – " + (sameMonth(s, last) ? last.getDate() + "日" : md(last)) + " · 全天"
+        if (sameDay(s, last)) return dayTitle(s) + allDayText
+        return md(s) + " – " + (sameMonth(s, last) ? (isEn() ? "" + last.getDate() : last.getDate() + "日") : md(last)) + allDayText
     }
     if (sameDay(s, e) || item.endMs - item.startMs <= 0)
-        return md(s) + " " + weekdayName(s) + " " + hm(item.startMs) + " – " + hm(item.endMs)
+        return dayTitle(s) + " " + hm(item.startMs) + " – " + hm(item.endMs)
     return md(s) + " " + hm(item.startMs) + " – " + md(e) + " " + hm(item.endMs)
 }
 
@@ -128,16 +147,34 @@ function layoutDay(items, day) {
     return evs
 }
 
-var reminderOptions = [
-    { label: "不提醒", value: -1 }, { label: "开始时", value: 0 }, { label: "5 分钟前", value: 5 },
-    { label: "10 分钟前", value: 10 }, { label: "15 分钟前", value: 15 }, { label: "30 分钟前", value: 30 },
-    { label: "1 小时前", value: 60 }, { label: "1 天前", value: 1440 }
-]
+function reminderOptions() {
+    var en = isEn()
+    return [
+        { label: en ? "None" : "不提醒", value: -1 }, { label: en ? "At start" : "开始时", value: 0 },
+        { label: en ? "5 min before" : "5 分钟前", value: 5 }, { label: en ? "10 min before" : "10 分钟前", value: 10 },
+        { label: en ? "15 min before" : "15 分钟前", value: 15 }, { label: en ? "30 min before" : "30 分钟前", value: 30 },
+        { label: en ? "1 hour before" : "1 小时前", value: 60 }, { label: en ? "1 day before" : "1 天前", value: 1440 }
+    ]
+}
 
 // 重复选项（与 Google / macOS 的快捷项一致）；rrule 为空 = 不重复
 function repeatOptions(day) {
     var wd = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"][day.getDay()]
     var nth = Math.floor((day.getDate() - 1) / 7) + 1
+    if (isEn()) {
+        var ord = ["", "1st", "2nd", "3rd", "4th", "5th"][nth]
+        var full = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][day.getDay()]
+        return [
+            { label: "Does not repeat", rrule: "" },
+            { label: "Daily", rrule: "FREQ=DAILY" },
+            { label: "Every weekday (Mon–Fri)", rrule: "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR" },
+            { label: "Weekly on " + full, rrule: "FREQ=WEEKLY;BYDAY=" + wd },
+            { label: "Every 2 weeks on " + full, rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=" + wd },
+            { label: "Monthly on day " + day.getDate(), rrule: "FREQ=MONTHLY" },
+            { label: "Monthly on the " + ord + " " + full, rrule: "FREQ=MONTHLY;BYDAY=" + nth + wd },
+            { label: "Annually on " + md(day), rrule: "FREQ=YEARLY" }
+        ]
+    }
     return [
         { label: "不重复", rrule: "" },
         { label: "每天", rrule: "FREQ=DAILY" },
@@ -159,7 +196,10 @@ function timeOptions() {
 function parseHm(s) { var p = s.split(":"); return (+p[0]) * 60 + (+p[1]) }
 function at(day, minutes) { return new Date(day.getFullYear(), day.getMonth(), day.getDate(), Math.floor(minutes / 60), minutes % 60) }
 
-var priorityOptions = [
-    { label: "无", value: 0 }, { label: "高", value: 1 }, { label: "中", value: 5 }, { label: "低", value: 9 }
-]
+function priorityOptions() {
+    var en = isEn()
+    return [{ label: en ? "None" : "无", value: 0 }, { label: en ? "High" : "高", value: 1 },
+            { label: en ? "Med" : "中", value: 5 }, { label: en ? "Low" : "低", value: 9 }]
+}
+function priorityName(p) { return p === 0 ? "" : (p <= 4 ? (isEn() ? "High" : "高") : p === 5 ? (isEn() ? "Medium" : "中") : (isEn() ? "Low" : "低")) }
 function priorityMark(p) { return p === 0 ? "" : (p <= 4 ? "!!!" : (p === 5 ? "!!" : "!")) }

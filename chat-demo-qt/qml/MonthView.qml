@@ -46,7 +46,7 @@ Item {
                     height: 28
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
-                    text: "周" + modelData
+                    text: modelData
                     font.pixelSize: 11
                     color: Theme.textSecondary
                 }
@@ -104,7 +104,7 @@ Item {
                         Text {
                             id: dayNum
                             anchors.centerIn: parent
-                            text: cell.date.getDate() === 1 ? (cell.date.getMonth() + 1) + "月1日" : cell.date.getDate()
+                            text: cell.date.getDate() === 1 ? Cal.md(cell.date) : cell.date.getDate()
                             font.pixelSize: 12
                             font.bold: cell.isToday || cell.date.getDate() === 1
                             color: cell.isToday ? Theme.accentText : (!cell.inMonth ? Theme.textTertiary : (Cal.isWeekend(cell.date) ? Theme.textSecondary : Theme.text))
@@ -132,7 +132,7 @@ Item {
                             leftPadding: 6
                             height: 18
                             verticalAlignment: Text.AlignVCenter
-                            text: "还有 " + (cell.list.length - cell.shown) + " 项"
+                            text: qsTr("还有 %n 项", "", cell.list.length - cell.shown)
                             font.pixelSize: 11; font.bold: true
                             color: moreMa.containsMouse ? Theme.accent : Theme.textSecondary
                             MouseArea { id: moreMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: mv.calendarView.showDay(cell.date) }

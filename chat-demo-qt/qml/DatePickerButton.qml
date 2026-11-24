@@ -21,7 +21,7 @@ Item {
         Text {
             anchors.verticalCenter: parent.verticalCenter
             x: 10
-            text: dp.date ? (dp.date.getFullYear() !== new Date().getFullYear() ? dp.date.getFullYear() + "年" : "") + Cal.md(dp.date) + " " + Cal.weekdayName(dp.date) : "选择日期"
+            text: dp.date ? (dp.date.getFullYear() !== new Date().getFullYear() ? Cal.ymd(dp.date) + " " + Cal.weekdayName(dp.date) : Cal.dayTitle(dp.date)) : qsTr("选择日期")
             font.pixelSize: 12
             color: Theme.text
         }

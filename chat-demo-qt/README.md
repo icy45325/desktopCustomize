@@ -5,7 +5,8 @@
 
 ## 构建与运行
 
-需要 Qt 6.4+（Core / Gui / Qml / Quick / QuickControls2 / Widgets / Network）和 CMake 3.21+。
+需要 Qt 6.4+（Core / Gui / Qml / Quick / QuickControls2 / Widgets / Network，以及翻译工具 LinguistTools）和 CMake 3.21+。
+Homebrew 的 `qt` 和 Qt 官方安装器都自带；Ubuntu 需要 `qt6-tools-dev qt6-l10n-tools`。
 
 ```bash
 cd chat-demo-qt
@@ -17,10 +18,11 @@ cmake --build build -j
 | 快捷键（Qt 在 macOS 上自动把 Ctrl 映射为 ⌘） | 作用域 | 行为 |
 |---|---|---|
 | `Ctrl+1` / `Ctrl+2` | 主窗口 | 切换「消息」/「日历」模块（左侧导航条，持久化） |
+| `Ctrl+,` | 任意窗口 | 打开设置（外观、语言、日历偏好） |
 | `Ctrl+Shift+P` | 主窗口 / 面板窗口 | 打开 / 关闭右侧动态面板（已拆成独立窗口时 = 合并回来） |
 | `Ctrl+Shift+O` | 主窗口 | 把当前会话拆到新窗口 |
 | `Ctrl+Shift+M` | 独立窗口 | 合并回主窗口 |
-| `Ctrl+Shift+D` | 任意窗口 | 切换浅色 / 深色主题（所有窗口同步，持久化） |
+| `Ctrl+Shift+D` | 任意窗口 | 在浅色 / 深色之间切换（会离开「跟随系统」；所有窗口同步，持久化） |
 | `Ctrl+W` | 当前窗口 | 主窗口关闭右侧会话；独立窗口关闭该窗口 |
 | `↩` / `⇧↩` | 输入框 | 发送 / 换行 |
 
@@ -39,6 +41,28 @@ cmake --build build -j
 | `qml/Main.qml` `ConversationList.qml` `DetachedWindow.qml` | 容器与列表（拖出检测、右键菜单、快捷键） |
 | `qml/Theme.qml` | 双色板单例：Light（柔和渐变底 + 紫色强调）/ Dark（深空底 + 青绿霓虹）；`WindowManager.darkMode` 持久化 |
 | `qml/Card.qml` `Avatar.qml` `MacButton.qml` | 悬浮卡片（伪投影，不依赖 GraphicalEffects）、首字头像、胶囊按钮 |
+
+## 设置：外观与语言
+
+导航条底部 ⚙ 或 ⌘, 打开设置，所有选项立即生效并持久化：
+
+- **外观**：浅色 / 深色 / 跟随系统。跟随系统时，系统切换外观会实时跟随（Qt 6.5+ 用 `QStyleHints::colorScheme`，6.4 根据系统调色板判断）。
+- **语言**：简体中文 / English。首次启动按系统语言选择。切换时整个界面重建，草稿、光标、选中的会话、日历数据都保留，设置对话框保持打开。
+  英文下日期格式、重复规则描述、AI 小助手（回复，以及英文输入如 “design sync tomorrow at 3pm for 30 min”）都随之变化。
+  示例数据在首次启动时按当时的语言生成；聊天里的模拟消息和内置示例订阅属于「数据」，不翻译。
+- **日历**：每周从周一开始、在日历中显示待办、显示已完成的待办。
+
+翻译用 Qt 标准流程：源文本是中文（`qsTr()` / `tr()`），英文译文在 `i18n/ChatDemo_en.ts`，编译时由 lrelease 生成 `.qm` 嵌入程序。改了界面文字后：
+
+```bash
+lupdate src qml -extensions cpp,h,qml,js -source-language zh_CN -target-language en_US -locations none -ts i18n/ChatDemo_en.ts
+python3 i18n/fill_en.py i18n/ChatDemo_en.ts   # 列出缺译文的条目，补进脚本里的词表后再跑一次（也可以用 Qt Linguist 编辑 .ts）
+```
+`CHATDEMO_LANG=en` / `zh` 可强制以某种语言启动（自测默认中文）。
+
+| 设置（中文） | Settings (English) | English · Calendar | English · Dark + Assistant |
+|---|---|---|---|
+| ![](docs/shot.settings.zh.light.png) | ![](docs/shot.settings.en.light.png) | ![](docs/shot.en.calendar.week.light.png) | ![](docs/shot.en.calendar.week.dark.png) |
 
 ## 动态面板（全局）
 
@@ -83,7 +107,8 @@ AI 小助手目前是**本地规则引擎**（中文日期 / 时间 / 时长解�
 | `qml/TimeGridView.qml` `MonthView.qml` `YearView.qml` `AgendaView.qml` | 四类视图 |
 | `qml/CalSidebar.qml` | 左侧栏（创建、迷你月历、日历列表、选项） |
 | `qml/SidePanel.qml` `PanelWindow.qml` | 全局动态面板与它的独立窗口；`TodoPanel` `MeetingPanel` `PanelCalendar` `PanelChat` `AssistantPanel` 是各标签 |
-| `src/assistant.*` | AI 小助手：中文日期 / 时间解析、意图识别、回复与撤销 |
+| `src/assistant.*` | AI 小助手：中英文日期 / 时间解析、意图识别、回复与撤销 |
+| `src/appsettings.*` `qml/SettingsDialog.qml` | 设置：主题模式（跟随系统）、界面语言（QTranslator + 界面重建）；`i18n/` 为翻译文件 |
 | `qml/EventEditor.qml` `EventDetail.qml` `SubscribeDialog.qml` | 新建/编辑（活动 / 待办）、详情气泡、订阅对话框 |
 | `qml/CalUtil.js` `MiniMonth.qml` `EventChip.qml` … | 日期工具与通用小部件 |
 | `qml/NavRail.qml` `Icons.js` | 左侧模块导航条（消息图标为 Canvas 矢量绘制）、面板开关 |
@@ -118,7 +143,7 @@ export QT_QPA_PLATFORM=offscreen CHATDEMO_DATA_DIR=$(mktemp -d)
 ./build/bin/ChatDemo --selftest            # phase 1：草稿/光标迁移、输入法延迟、单实例、租约、未读+通知、合并、关闭
 ./build/bin/ChatDemo --selftest --phase2   # phase 2：重启后恢复独立窗口与草稿
 ./build/bin/ChatDemo --selftest --perf     # 性能：切模块 / 切视图 / 数据变化耗时
-./build/bin/ChatDemo --selftest --calendar # 日历：iCalendar 解析/往返、RRULE、增删改、订阅、提醒、五种视图、AI 小助手、动态面板（共 75 项）
+./build/bin/ChatDemo --selftest --calendar # 日历：iCalendar 解析/往返、RRULE、增删改、订阅、提醒、五种视图、AI 小助手、动态面板、主题与语言切换（共 91 项）
 ```
 
 已自动覆盖的验收用例：1、3、4、5、窗口恢复后自动滚到「新消息」分隔线（用 `setComposing` 模拟组合态）、6/9（最小化窗口的未读与通知）、10、12。
@@ -134,4 +159,4 @@ export QT_QPA_PLATFORM=offscreen CHATDEMO_DATA_DIR=$(mktemp -d)
 | 独立窗口（草稿 + 引用 + 新消息） | ![](docs/shot.detached.light.png) | ![](docs/shot.detached.dark.png) |
 
 动效：选中会话卡片轻微漂浮、hover 上浮；未读角标数字增加时弹跳；新消息从底部上浮进入；发送按钮按下回弹；主题切换时各颜色 260ms 渐变、切换按钮旋转一圈。
-`CHATDEMO_DARK=1` 可强制以深色启动（自测/截图用）。
+`CHATDEMO_DARK=1` / `0` 可强制深色 / 浅色启动（自测/截图用，不写入设置）。

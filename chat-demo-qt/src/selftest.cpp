@@ -1,5 +1,6 @@
 #include "selftest.h"
 
+#include "appsettings.h"
 #include "assistant.h"
 #include "calendarstore.h"
 #include "chatstore.h"
@@ -17,6 +18,7 @@
 #include <QQuickItem>
 #include <QQuickWindow>
 #include <QTimer>
+#include <QRegularExpression>
 #include <QUrl>
 
 namespace {
@@ -380,6 +382,103 @@ void panelTests()
     wait(300);
 }
 
+
+// MARK: 设置：主题模式 + 界面语言
+
+QString textOf(QQuickWindow *w, const char *name) { QQuickItem *it = findItem(w, name); return it ? it->property("text").toString() : QString(); }
+
+void settingsTests()
+{
+    auto *wm = WindowManager::instance();
+    auto *st = AppSettings::instance();
+    const QString shot = qEnvironmentVariable("CHATDEMO_SHOT");
+
+    // 主题：浅色 / 深色 / 跟随系统
+    st->setThemeMode("dark");
+    check(st->dark() && wm->darkMode(), "settings: 深色模式");
+    st->setThemeMode("light");
+    check(!st->dark() && !wm->darkMode(), "settings: 浅色模式");
+    st->setThemeMode("system");
+    check(st->dark() == st->systemDark(), "settings: 跟随系统（生效值 = 系统外观）");
+    st->toggleDark();
+    check(st->themeMode() == (st->systemDark() ? "light" : "dark"), "settings: ⌘⇧D 从「跟随系统」切到固定模式");
+    st->setThemeMode("light");
+
+    // 语言：中文 → English（界面重建，草稿保留，设置对话框保持打开）
+    wm->setModule("chat");
+    wm->select("c3");
+    wait(400);
+    if (QQuickItem *in = draftInput(wm->mainWindow())) { in->setProperty("text", QStringLiteral("切换语言前的草稿")); wait(100); }   // 不等防抖：验证切换前的 flush
+    QMetaObject::invokeMethod(wm, "openSettings");
+    wait(300);
+    QObject *dlg = findItem(wm->mainWindow(), "settingsDialog") ? nullptr : wm->mainWindow()->findChild<QObject *>("settingsDialog");
+    check(dlg && dlg->property("opened").toBool(), "settings: ⌘, 打开设置");
+    if (!shot.isEmpty()) wm->mainWindow()->grabWindow().save(shot + ".settings.zh.light.png");
+
+    st->setLanguage("en");
+    wait(700);
+    check(dlg && dlg->property("opened").toBool(), "i18n: 切换语言时设置对话框保持打开");
+    if (!shot.isEmpty()) wm->mainWindow()->grabWindow().save(shot + ".settings.en.light.png");
+    if (dlg) QMetaObject::invokeMethod(dlg, "close");
+    QQuickItem *in2 = draftInput(wm->mainWindow());
+    check(in2 && in2->property("text").toString() == "切换语言前的草稿", "i18n: 界面重建后草稿保留（切换前已 flush）");
+    check(findItem(wm->mainWindow(), "rail-chat") && QString(findItem(wm->mainWindow(), "rail-chat")->property("label").toString()) == "Messages", "i18n: 导航条文字为英文");
+
+    wm->setModule("calendar");
+    CalendarStore::instance()->setViewMode("month");
+    wait(500);
+    const QString title = textOf(wm->mainWindow(), "calendarTitle");
+    check(QRegularExpression("^(January|February|March|April|May|June|July|August|September|October|November|December) \\d{4}$").match(title).hasMatch(),
+          qPrintable("i18n: 月视图标题为英文格式（" + title + "）"));
+    check(CalendarStore::instance()->describeRule("FREQ=WEEKLY;BYDAY=MO,WE") == "Weekly on Mon, Wed"
+              && CalendarStore::instance()->describeRule("FREQ=MONTHLY;BYDAY=2TU") == "Monthly on the 2nd Tue", "i18n: 重复规则描述为英文");
+
+    // 助手：英文输入 + 英文回复
+    auto *as = Assistant::instance();
+    const QDateTime now(QDate::currentDate(), QTime(8, 0));
+    const auto w = Assistant::parseWhen("design sync tomorrow at 3:30pm for 45 minutes", QDate(2026, 11, 23));
+    check(w.from == QDate(2026, 11, 24) && w.start == QTime(15, 30) && w.durationMin == 45 && w.rest.contains("design sync"), "i18n: 解析英文日期 / 时间 / 时长");
+    const auto w2 = Assistant::parseWhen("next friday 2-4pm", QDate(2026, 11, 23));
+    check(w2.from == QDate(2026, 11, 27) && w2.start == QTime(14, 0) && w2.end == QTime(16, 0), "i18n: next friday + 时间区间");
+    QVariantMap r = as->respond("What's on today?", now);
+    check(r["text"].toString().startsWith("Today") && !r["items"].toList().isEmpty(), qPrintable("i18n: 助手英文查日程（" + r["text"].toString().left(40) + "…）"));
+    r = as->respond("Design sync tomorrow at 4pm for 30 min", now);
+    const QString uid = r["action"].toMap()["uid"].toString();
+    check(!uid.isEmpty() && CalendarStore::instance()->event(uid)["title"] == "Design sync" && r["text"].toString().startsWith("Created"), "i18n: 助手英文新建活动");
+    CalendarStore::instance()->deleteEvent(uid);
+    r = as->respond("remind me to send the invoice friday", now);
+    const QString tid = r["action"].toMap()["uid"].toString();
+    check(!tid.isEmpty() && CalendarStore::instance()->todo(tid)["title"] == "send the invoice", "i18n: 助手英文新建待办");
+    CalendarStore::instance()->deleteTodo(tid);
+
+    if (!shot.isEmpty()) {
+        CalendarStore::instance()->setViewMode("week");
+        wm->setPanelTab("meetings");
+        wait(600);
+        wm->mainWindow()->grabWindow().save(shot + ".en.calendar.week.light.png");
+        st->setThemeMode("dark");
+        wm->setPanelTab("assistant");
+        as->send("What's my next meeting?");
+        wait(900);
+        wm->mainWindow()->grabWindow().save(shot + ".en.calendar.week.dark.png");
+        st->setThemeMode("light");
+        wm->setModule("chat");
+        wm->setPanelTab("calendar");
+        wait(600);
+        wm->mainWindow()->grabWindow().save(shot + ".en.chat.light.png");
+    }
+
+    // 切回中文
+    st->setLanguage("zh");
+    wm->setModule("calendar");
+    CalendarStore::instance()->setViewMode("month");
+    wait(600);
+    check(textOf(wm->mainWindow(), "calendarTitle").contains("年"), "i18n: 切回中文");
+    CalendarStore::instance()->setViewMode("week");
+    wm->setPanelTab("todo");
+    wait(300);
+}
+
 QStringList titlesOn(const QDate &d)
 {
     QStringList r;
@@ -539,6 +638,7 @@ void calendarPhase()
     QQuickItem *todoPanel = findItem(wm->mainWindow(), "todoPanel");
     check(todoPanel && todoPanel->isVisible(), "UI: 动态面板默认显示待办");
     panelTests();
+    settingsTests();
     if (!shot.isEmpty()) {   // 面板各标签截图（日历模块）
         wm->setModule("calendar");
         for (const char *t : {"meetings", "assistant", "chat"}) {

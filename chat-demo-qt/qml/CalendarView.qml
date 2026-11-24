@@ -26,28 +26,34 @@ Item {
     // 标题简洁（同 macOS 日历）：周/月视图只写年月，细节放副标题
     function title() {
         var d = anchorDate
-        if (searchText !== "") return "搜索：" + searchText
+        if (searchText !== "") return qsTr("搜索：%1").arg(searchText)
         switch (mode) {
         case "day": return Cal.md(d)
         case "week": {
             var s = rangeStart, e = Cal.addDays(rangeStart, 6)
-            if (s.getFullYear() !== e.getFullYear()) return s.getFullYear() + "年" + (s.getMonth() + 1) + "月 – " + e.getFullYear() + "年" + (e.getMonth() + 1) + "月"
-            if (s.getMonth() !== e.getMonth()) return s.getFullYear() + "年" + (s.getMonth() + 1) + "–" + (e.getMonth() + 1) + "月"
-            return s.getFullYear() + "年" + (s.getMonth() + 1) + "月"
+            if (s.getFullYear() !== e.getFullYear()) return Cal.ym(s) + " – " + Cal.ym(e)
+            if (s.getMonth() !== e.getMonth()) return Cal.isEn() ? Cal.monthShort(s) + " – " + Cal.monthShort(e) + " " + s.getFullYear()
+                                                                 : s.getFullYear() + "年" + (s.getMonth() + 1) + "–" + (e.getMonth() + 1) + "月"
+            return Cal.ym(s)
         }
-        case "month": return d.getFullYear() + "年" + (d.getMonth() + 1) + "月"
-        case "year": return d.getFullYear() + "年"
-        default: return "日程"
+        case "month": return Cal.ym(d)
+        case "year": return Cal.yearText(d.getFullYear())
+        default: return qsTr("日程")
         }
     }
     function subtitle() {
         if (searchText !== "") return ""
-        if (mode === "week") return "第 " + Cal.weekNumber(rangeStart) + " 周 · " + Cal.md(rangeStart) + " – " + Cal.md(Cal.addDays(rangeStart, 6))
-        if (mode === "day") { var r = Cal.relativeDay(anchorDate); return anchorDate.getFullYear() + "年 · " + Cal.weekdayName(anchorDate) + (r !== "" ? " · " + r : "") }
-        if (mode === "agenda") return "自 " + Cal.ymd(anchorDate) + " 起"
+        if (mode === "week") return qsTr("第 %1 周").arg(Cal.weekNumber(rangeStart)) + " · " + Cal.md(rangeStart) + " – " + Cal.md(Cal.addDays(rangeStart, 6))
+        if (mode === "day") { var r = Cal.relativeDay(anchorDate); return Cal.yearText(anchorDate.getFullYear()) + " · " + Cal.weekdayName(anchorDate) + (r !== "" ? " · " + r : "") }
+        if (mode === "agenda") return qsTr("自 %1 起").arg(Cal.ymd(anchorDate))
         return ""
     }
 
+    function modes() {
+        return [{ k: "day", t: qsTr("日"), s: "D" }, { k: "week", t: qsTr("周"), s: "W" }, { k: "month", t: qsTr("月"), s: "M" },
+                { k: "year", t: qsTr("年"), s: "Y" }, { k: "agenda", t: qsTr("日程"), s: "A" }]
+    }
+    function modeLabel(k) { var m = modes(); for (var i = 0; i < m.length; ++i) if (m[i].k === k) return m[i].t; return "" }
     function goToday() { anchorDate = Cal.today() }
     function step(n) {
         switch (mode) {
@@ -142,14 +148,17 @@ Item {
 
                 // MARK: 工具栏
                 RowLayout {
+                    id: toolbar
+                    // 窄时（如打开右侧面板、英文标签更长）把视图分段控件收成一个下拉按钮，给标题留出空间
+                    readonly property bool compact: width < 640
                     Layout.fillWidth: true
                     Layout.margins: 14
                     Layout.bottomMargin: 10
                     spacing: 8
 
-                    MacButton { text: "今天"; objectName: "todayButton"; onClicked: calRoot.goToday(); ToolTip.visible: hovered; ToolTip.text: "回到今天（T）"; ToolTip.delay: 600 }
-                    MacButton { circular: true; text: "‹"; font.pixelSize: 18; onClicked: calRoot.step(-1); ToolTip.visible: hovered; ToolTip.text: "上一页（K / ←）"; ToolTip.delay: 600 }
-                    MacButton { circular: true; text: "›"; font.pixelSize: 18; onClicked: calRoot.step(1); ToolTip.visible: hovered; ToolTip.text: "下一页（J / →）"; ToolTip.delay: 600 }
+                    MacButton { text: qsTr("今天"); objectName: "todayButton"; onClicked: calRoot.goToday(); ToolTip.visible: hovered; ToolTip.text: qsTr("回到今天（T）"); ToolTip.delay: 600 }
+                    MacButton { circular: true; text: "‹"; font.pixelSize: 18; onClicked: calRoot.step(-1); ToolTip.visible: hovered; ToolTip.text: qsTr("上一页（K / ←）"); ToolTip.delay: 600 }
+                    MacButton { circular: true; text: "›"; font.pixelSize: 18; onClicked: calRoot.step(1); ToolTip.visible: hovered; ToolTip.text: qsTr("下一页（J / →）"); ToolTip.delay: 600 }
                     Column {
                         Layout.leftMargin: 6
                         Layout.fillWidth: true
@@ -192,7 +201,7 @@ Item {
                             anchors.fill: parent
                             anchors.leftMargin: 26; anchors.rightMargin: 8
                             opacity: searchBox.expanded ? 1 : 0
-                            placeholderText: "搜索日程"
+                            placeholderText: qsTr("搜索日程")
                             placeholderTextColor: Theme.textTertiary
                             color: Theme.text
                             font.pixelSize: 12
@@ -207,13 +216,33 @@ Item {
                             cursorShape: Qt.PointingHandCursor
                             onClicked: searchField.forceActiveFocus()
                         }
-                        ToolTip.visible: !expanded && searchHover.hovered; ToolTip.text: "搜索（/ 或 ⌘F）"; ToolTip.delay: 500
+                        ToolTip.visible: !expanded && searchHover.hovered; ToolTip.text: qsTr("搜索（/ 或 ⌘F）"); ToolTip.delay: 500
                         HoverHandler { id: searchHover }
                         Timer { id: searchTimer; interval: 250; onTriggered: calRoot.searchText = searchField.text.trim() }
                     }
 
+                    // 视图切换：窄时为下拉按钮
+                    MacButton {
+                        id: modeButton
+                        objectName: "modeMenuButton"
+                        visible: toolbar.compact
+                        text: calRoot.modeLabel(calRoot.mode) + "  ⌄"
+                        onClicked: modeMenu.popup(modeButton, 0, modeButton.height + 4)
+                        Menu {
+                            id: modeMenu
+                            Repeater {
+                                model: calRoot.modes()
+                                MenuItem {
+                                    required property var modelData
+                                    text: modelData.t + "    " + modelData.s
+                                    onTriggered: calRoot.setMode(modelData.k)
+                                }
+                            }
+                        }
+                    }
                     // 视图切换（分段控件）
                     Rectangle {
+                        visible: !toolbar.compact
                         implicitHeight: 30
                         implicitWidth: seg.implicitWidth + 6
                         radius: 15
@@ -223,8 +252,7 @@ Item {
                             anchors.centerIn: parent
                             spacing: 2
                             Repeater {
-                                model: [{ k: "day", t: "日", s: "D" }, { k: "week", t: "周", s: "W" }, { k: "month", t: "月", s: "M" },
-                                        { k: "year", t: "年", s: "Y" }, { k: "agenda", t: "日程", s: "A" }]
+                                model: calRoot.modes()
                                 Rectangle {
                                     required property var modelData
                                     readonly property bool on: calRoot.mode === modelData.k && calRoot.searchText === ""
@@ -236,7 +264,7 @@ Item {
                                     Behavior on color { ColorAnimation { duration: 150 } }
                                     Text { id: segText; anchors.centerIn: parent; text: modelData.t; font.pixelSize: 12; font.bold: parent.on; color: parent.on ? Theme.accent : Theme.textSecondary }
                                     MouseArea { id: segMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: calRoot.setMode(modelData.k) }
-                                    ToolTip.visible: segMa.containsMouse; ToolTip.delay: 600; ToolTip.text: modelData.t + "视图（" + modelData.s + "）"
+                                    ToolTip.visible: segMa.containsMouse; ToolTip.delay: 600; ToolTip.text: qsTr("%1视图（%2）").arg(modelData.t).arg(modelData.s)
                                 }
                             }
                         }
@@ -255,7 +283,7 @@ Item {
                             WindowManager.panelTab = "todo"
                             WindowManager.panelOpen = true
                         }
-                        ToolTip.visible: hovered; ToolTip.text: showing ? "隐藏待办" : "在右侧面板显示待办"; ToolTip.delay: 500
+                        ToolTip.visible: hovered; ToolTip.text: showing ? qsTr("隐藏待办") : qsTr("在右侧面板显示待办"); ToolTip.delay: 500
                         Rectangle {
                             visible: CalendarStore.openTodoCount > 0
                             x: parent.width - width / 2 - 3; y: -4

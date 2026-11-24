@@ -70,7 +70,7 @@ Popup {
         var full = CalendarStore.event(item.uid)   // 编辑整个系列：用系列的首个实例时间
         uid = item.uid
         resetCommon("event", item.calendarId)
-        titleField.text = full.title === "（无标题）" ? "" : full.title
+        titleField.text = full.title === qsTr("（无标题）") ? "" : full.title
         locationField.text = full.location
         notesField.text = full.notes
         allDay = full.allDay
@@ -85,7 +85,7 @@ Popup {
     function openTodo(item) {
         uid = item.uid
         resetCommon("todo", item.calendarId)
-        titleField.text = item.title === "（无标题）" ? "" : item.title
+        titleField.text = item.title === qsTr("（无标题）") ? "" : item.title
         notesField.text = item.notes
         hasDue = item.dueIso !== ""
         dueDay = hasDue ? Cal.parseIso(item.dueIso) : Cal.today()
@@ -128,7 +128,7 @@ Popup {
                     anchors.centerIn: parent
                     spacing: 2
                     Repeater {
-                        model: [{ k: "event", t: "活动" }, { k: "todo", t: "待办" }]
+                        model: [{ k: "event", t: qsTr("活动") }, { k: "todo", t: qsTr("待办") }]
                         Rectangle {
                             required property var modelData
                             readonly property bool on: ed.kind === modelData.k
@@ -143,7 +143,7 @@ Popup {
             }
             Text {
                 visible: !ed.isNew
-                text: ed.kind === "todo" ? "编辑待办" : "编辑活动"
+                text: ed.kind === "todo" ? qsTr("编辑待办") : qsTr("编辑活动")
                 font.pixelSize: 15; font.bold: true; color: Theme.text
             }
             Item { Layout.fillWidth: true }
@@ -158,7 +158,7 @@ Popup {
             id: titleField
             objectName: "editorTitle"
             Layout.fillWidth: true
-            placeholderText: ed.kind === "todo" ? "待办事项" : "添加标题"
+            placeholderText: ed.kind === "todo" ? qsTr("待办事项") : qsTr("添加标题")
             placeholderTextColor: Theme.textTertiary
             font.pixelSize: 20
             color: Theme.text
@@ -217,14 +217,14 @@ Popup {
                 RowLayout {
                     spacing: 6
                     visible: ed.allDay || !Cal.sameDay(ed.startDay, ed.endDay) || ed.endMin <= ed.startMin
-                    Text { text: ed.allDay ? "至" : "结束日期"; color: Theme.textSecondary; font.pixelSize: 12 }
+                    Text { text: ed.allDay ? qsTr("至") : qsTr("结束日期"); color: Theme.textSecondary; font.pixelSize: 12 }
                     DatePickerButton { date: ed.endDay; onPicked: (d) => ed.endDay = d < ed.startDay ? ed.startDay : d }
                 }
                 RowLayout {
                     spacing: 14
                     CheckBox {
                         id: allDayBox
-                        text: "全天"
+                        text: qsTr("全天")
                         checked: ed.allDay
                         onToggled: ed.allDay = checked
                         font.pixelSize: 12
@@ -235,7 +235,7 @@ Popup {
                         model: {
                             var opts = Cal.repeatOptions(ed.startDay)
                             if (ed.rrule !== "" && !opts.some(function (o) { return o.rrule === ed.rrule }))
-                                opts.push({ label: CalendarStore.describeRule(ed.rrule) + "（自定义）", rrule: ed.rrule })
+                                opts.push({ label: qsTr("%1（自定义）").arg(CalendarStore.describeRule(ed.rrule)), rrule: ed.rrule })
                             return opts
                         }
                         currentIndex: { for (var i = 0; i < model.length; ++i) if (model[i].rrule === ed.rrule) return i; return 0 }
@@ -247,13 +247,13 @@ Popup {
             Text { text: "♪"; color: Theme.textTertiary; font.pixelSize: 15 }
             CalCombo {
                 Layout.preferredWidth: 160
-                model: Cal.reminderOptions
+                model: Cal.reminderOptions()
                 currentIndex: { for (var i = 0; i < model.length; ++i) if (model[i].value === ed.reminder) return i; return 0 }
                 onActivated: (i) => ed.reminder = model[i].value
             }
 
             Text { text: "⌖"; color: Theme.textTertiary; font.pixelSize: 15 }
-            CalTextField { id: locationField; Layout.fillWidth: true; placeholderText: "添加地点" }
+            CalTextField { id: locationField; Layout.fillWidth: true; placeholderText: qsTr("添加地点") }
         }
 
         // MARK: 待办
@@ -268,7 +268,7 @@ Popup {
                 spacing: 8
                 CheckBox {
                     id: dueBox
-                    text: "截止"
+                    text: qsTr("截止")
                     checked: ed.hasDue
                     onToggled: ed.hasDue = checked
                     font.pixelSize: 12
@@ -279,7 +279,7 @@ Popup {
                     enabled: ed.hasDue
                     Layout.preferredWidth: 96
                     textRole: ""
-                    model: ["无时间"].concat(ed.timeOptions)
+                    model: [qsTr("无时间")].concat(ed.timeOptions)
                     currentIndex: ed.dueTime === "" ? 0 : ed.timeOptions.indexOf(ed.dueTime) + 1
                     onActivated: (i) => ed.dueTime = i === 0 ? "" : ed.timeOptions[i - 1]
                 }
@@ -287,9 +287,9 @@ Popup {
             Text { text: "!"; color: Theme.textTertiary; font.pixelSize: 15; font.bold: true; Layout.leftMargin: 4 }
             RowLayout {
                 spacing: 6
-                Text { text: "优先级"; color: Theme.textSecondary; font.pixelSize: 12 }
+                Text { text: qsTr("优先级"); color: Theme.textSecondary; font.pixelSize: 12 }
                 Repeater {
-                    model: Cal.priorityOptions
+                    model: Cal.priorityOptions()
                     Rectangle {
                         required property var modelData
                         readonly property bool on: ed.priority === modelData.value
@@ -347,7 +347,7 @@ Popup {
                 Layout.preferredHeight: 70
                 TextArea {
                     id: notesField
-                    placeholderText: "添加备注"
+                    placeholderText: qsTr("添加备注")
                     placeholderTextColor: Theme.textTertiary
                     color: Theme.text
                     font.pixelSize: 12
@@ -359,7 +359,7 @@ Popup {
 
         Text {
             visible: !ed.isNew && ed.kind === "event" && ed.rrule !== ""
-            text: "修改将应用到整个重复系列"
+            text: qsTr("修改将应用到整个重复系列")
             font.pixelSize: 11
             color: Theme.textTertiary
         }
@@ -370,15 +370,15 @@ Popup {
             spacing: 8
             MacButton {
                 visible: !ed.isNew
-                text: "删除"
+                text: qsTr("删除")
                 onClicked: {
                     ed.kind === "todo" ? CalendarStore.deleteTodo(ed.uid) : CalendarStore.deleteEvent(ed.uid)
                     ed.close()
                 }
             }
             Item { Layout.fillWidth: true }
-            MacButton { text: "取消"; onClicked: ed.close() }
-            MacButton { objectName: "editorSave"; text: "保存"; primary: true; onClicked: ed.save() }
+            MacButton { text: qsTr("取消"); onClicked: ed.close() }
+            MacButton { objectName: "editorSave"; text: qsTr("保存"); primary: true; onClicked: ed.save() }
         }
     }
 }

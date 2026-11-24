@@ -1,3 +1,4 @@
+#include "appsettings.h"
 #include "calendarstore.h"
 #include "chatstore.h"
 #include "mockserver.h"
@@ -14,6 +15,9 @@ int main(int argc, char *argv[])
 {
     // 用 QApplication 而不是 QGuiApplication：QSystemTrayIcon 属于 QtWidgets。
     QApplication app(argc, argv);
+    // 自测断言基于中文示例数据：没指定语言时固定用中文（--selftest --calendar 里另有英文切换的用例）
+    if (app.arguments().contains(QStringLiteral("--selftest")) && !qEnvironmentVariableIsSet("CHATDEMO_LANG"))
+        qputenv("CHATDEMO_LANG", "zh");
     QApplication::setApplicationName(QStringLiteral("ChatDemo"));
     QApplication::setOrganizationName(QStringLiteral("ChatDemo"));
     QQuickStyle::setStyle(QStringLiteral("Basic"));
@@ -22,6 +26,7 @@ int main(int argc, char *argv[])
     QQmlApplicationEngine engine;
     engine.addImportPath(QStringLiteral("qrc:/qt/qml"));
     WindowManager::instance()->setEngine(&engine);
+    AppSettings::instance()->install(&engine);   // 装上界面语言的翻译（中文为源文本，英文加载 .qm）
 
     Notifier notifier;
     QObject::connect(ChatStore::instance(), &ChatStore::notificationRequested, &notifier, &Notifier::notify);

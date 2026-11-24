@@ -7,6 +7,7 @@ import "Icons.js" as Icons
 Item {
     id: rail
     implicitWidth: 66
+    signal settingsRequested()
 
     component RailButton: Item {
         id: rb
@@ -52,7 +53,7 @@ Item {
         MouseArea { id: ma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: WindowManager.module = rb.module }
         ToolTip.visible: ma.containsMouse
         ToolTip.delay: 600
-        ToolTip.text: rb.label + (rb.module === "chat" ? "（⌘1）" : "（⌘2）")
+        ToolTip.text: rb.label + (rb.module === "chat" ? qsTr("（⌘1）") : qsTr("（⌘2）"))
     }
 
     Column {
@@ -63,7 +64,7 @@ Item {
 
         RailButton {
             id: chatBtn
-            module: "chat"; label: "消息"; badge: ChatStore.totalUnread
+            module: "chat"; label: qsTr("消息"); badge: ChatStore.totalUnread
             // 聊天气泡（矢量绘制，抗锯齿）：未选中 = 描边，选中 = 实心 + 反色的三个点
             Canvas {
                 id: chatIcon
@@ -80,7 +81,7 @@ Item {
         }
         RailButton {
             id: calBtn
-            module: "calendar"; label: "日历"; badgeDot: CalendarStore.openTodoCount > 0
+            module: "calendar"; label: qsTr("日历"); badgeDot: CalendarStore.openTodoCount > 0
             // 日历图标：顶部色条 + 今天的日期（与 macOS 日历的 Dock 图标同理）
             Rectangle {
                 id: calIcon
@@ -98,8 +99,35 @@ Item {
         }
     }
 
+    // 底部：设置（⌘,）
+    Item {
+        objectName: "railSettings"
+        anchors.bottom: panelToggle.top
+        anchors.bottomMargin: 4
+        width: parent.width
+        height: 40
+        Rectangle {
+            anchors.centerIn: parent
+            width: 40; height: 36; radius: 11
+            color: gearMa.containsMouse ? Theme.hover : "transparent"
+            Text {
+                anchors.centerIn: parent
+                text: "⚙"
+                font.pixelSize: 19
+                color: gearMa.containsMouse ? Theme.accent : Theme.textSecondary
+                rotation: gearMa.containsMouse ? 45 : 0
+                Behavior on rotation { NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
+            }
+        }
+        MouseArea { id: gearMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: rail.settingsRequested() }
+        ToolTip.visible: gearMa.containsMouse
+        ToolTip.delay: 500
+        ToolTip.text: qsTr("设置（⌘,）")
+    }
+
     // 底部：全局动态面板开关（⌘⇧P）
     Item {
+        id: panelToggle
         objectName: "railPanelToggle"
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 18
@@ -134,6 +162,6 @@ Item {
         }
         ToolTip.visible: panelMa.containsMouse
         ToolTip.delay: 500
-        ToolTip.text: (WindowManager.panelDetached ? "面板已在独立窗口，点击合并回来" : WindowManager.panelOpen ? "隐藏动态面板" : "显示动态面板") + "（⌘⇧P）"
+        ToolTip.text: (WindowManager.panelDetached ? qsTr("面板已在独立窗口，点击合并回来") : WindowManager.panelOpen ? qsTr("隐藏动态面板") : qsTr("显示动态面板")) + qsTr("（⌘⇧P）")
     }
 }

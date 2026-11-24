@@ -46,7 +46,7 @@ Item {
             Text {
                 Layout.fillWidth: true
                 leftPadding: 4
-                text: mm.compactTitle ? (mm.month.getMonth() + 1) + "月" : mm.month.getFullYear() + "年" + (mm.month.getMonth() + 1) + "月"
+                text: mm.compactTitle ? Cal.monthShort(mm.month) : Cal.ym(mm.month)
                 font.pixelSize: mm.compactTitle ? 14 : 13
                 font.bold: true
                 color: mm.compactTitle && Cal.sameMonth(mm.month, new Date()) ? Theme.accent : Theme.text
@@ -69,7 +69,7 @@ Item {
 
         Row {
             Repeater {
-                model: Cal.weekdayLabels(CalendarStore.weekStartsMonday)
+                model: Cal.weekdayLabels(CalendarStore.weekStartsMonday, true)
                 Text {
                     required property string modelData
                     width: mm.width / 7

@@ -36,7 +36,7 @@ Item {
                 font.pixelSize: 13; font.bold: true; color: Theme.text
             }
             Text {
-                text: "在日历中打开 ›"
+                text: qsTr("在日历中打开 ›")
                 font.pixelSize: 11; color: openMa.containsMouse ? Theme.accent : Theme.textTertiary
                 MouseArea {
                     id: openMa; anchors.fill: parent; anchors.margins: -4; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
@@ -86,8 +86,8 @@ Item {
                         }
                         Text {
                             width: parent.width
-                            text: row.todo ? (row.modelData.dueTime !== "" ? "截止 " + row.modelData.dueTime : "待办")
-                                 : row.modelData.allDay || row.modelData.multiDay ? "全天" : Cal.hm(row.modelData.startMs) + " – " + Cal.hm(row.modelData.endMs)
+                            text: row.todo ? (row.modelData.dueTime !== "" ? qsTr("截止 %1").arg(row.modelData.dueTime) : qsTr("待办"))
+                                 : row.modelData.allDay || row.modelData.multiDay ? qsTr("全天") : Cal.hm(row.modelData.startMs) + " – " + Cal.hm(row.modelData.endMs)
                             font.pixelSize: 10; color: Theme.textSecondary; elide: Text.ElideRight
                         }
                     }
@@ -104,7 +104,7 @@ Item {
             visible: pc.items.length === 0
             Layout.alignment: Qt.AlignHCenter
             Layout.bottomMargin: 30
-            text: "这一天没有安排"
+            text: qsTr("这一天没有安排")
             color: Theme.textSecondary; font.pixelSize: 12
         }
     }

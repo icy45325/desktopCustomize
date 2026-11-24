@@ -125,7 +125,7 @@ QString CalendarStore::addCalendar(const QString &name, const QString &color)
 {
     Cal c;
     c.id = QStringLiteral("cal-") + QUuid::createUuid().toString(QUuid::Id128).left(8);
-    c.name = name.trimmed().isEmpty() ? QStringLiteral("新日历") : name.trimmed();
+    c.name = name.trimmed().isEmpty() ? tr("新日历") : name.trimmed();
     c.color = color.isEmpty() ? palette().value(m_cals.size() % palette().size()) : color;
     c.kind = QStringLiteral("local");
     m_cals << c;
@@ -230,11 +230,11 @@ void CalendarStore::refresh(const QString &id)
     if (!path.isEmpty()) {
         QFile f(path);
         if (f.open(QIODevice::ReadOnly)) fetched(id, f.readAll(), {});
-        else fetched(id, {}, QStringLiteral("无法读取文件：") + path);
+        else fetched(id, {}, tr("无法读取文件：%1").arg(path));
         return;
     }
     if (url.scheme() != QLatin1String("http") && url.scheme() != QLatin1String("https")) {
-        fetched(id, {}, QStringLiteral("不支持的地址，请使用 https://、webcal:// 或本地 .ics 文件"));
+        fetched(id, {}, tr("不支持的地址，请使用 https://、webcal:// 或本地 .ics 文件"));
         return;
     }
     c->syncing = true;
@@ -256,7 +256,7 @@ void CalendarStore::fetched(const QString &id, const QByteArray &data, const QSt
     if (!c) return;   // 拉取期间被取消订阅
     c->syncing = false;
     QString err = error;
-    if (err.isEmpty() && !data.contains("BEGIN:VCALENDAR")) err = QStringLiteral("不是有效的 iCalendar（.ics）数据");
+    if (err.isEmpty() && !data.contains("BEGIN:VCALENDAR")) err = tr("不是有效的 iCalendar（.ics）数据");
     if (err.isEmpty()) {
         loadFromIcs(*c, data, true);
         c->lastSync = QDateTime::currentDateTime();
@@ -268,7 +268,7 @@ void CalendarStore::fetched(const QString &id, const QByteArray &data, const QSt
         c->lastError = err;   // 保留上次缓存的数据
         qWarning().noquote() << "[calendar] 订阅刷新失败" << c->url << err;
     }
-    if (c->name.isEmpty()) c->name = QStringLiteral("订阅日历");
+    if (c->name.isEmpty()) c->name = tr("订阅日历");
     saveMeta();
     bumpCalendars();
     emit syncFinished(id, err.isEmpty(), err);
@@ -305,7 +305,7 @@ QVariantMap CalendarStore::occurrenceMap(const Cal &c, const ical::Event &e, con
     return {{"key", e.uid + QLatin1Char('|') + QString::number(start.toSecsSinceEpoch())},
             {"uid", e.uid}, {"type", "event"},
             {"calendarId", c.id}, {"calendarName", c.name}, {"color", c.color},
-            {"title", e.title.isEmpty() ? QStringLiteral("（无标题）") : e.title},
+            {"title", e.title.isEmpty() ? tr("（无标题）") : e.title},
             {"location", e.location}, {"notes", e.notes}, {"url", e.url},
             {"allDay", e.allDay}, {"startMs", double(start.toMSecsSinceEpoch())}, {"endMs", double(end.toMSecsSinceEpoch())},
             {"startIso", isoStr(start.date())}, {"lastIso", isoStr(last)},
@@ -377,7 +377,7 @@ QVariantMap CalendarStore::todoMap(const Cal &c, const ical::Todo &t) const
     const QDateTime dueAt(t.due, t.dueTime.isValid() ? t.dueTime : QTime(0, 0));
     return {{"uid", t.uid}, {"type", "todo"}, {"key", QStringLiteral("todo|") + t.uid},
             {"calendarId", c.id}, {"calendarName", c.name}, {"color", c.color},
-            {"title", t.title.isEmpty() ? QStringLiteral("（无标题）") : t.title}, {"notes", t.notes},
+            {"title", t.title.isEmpty() ? tr("（无标题）") : t.title}, {"notes", t.notes},
             {"dueIso", t.due.isValid() ? isoStr(t.due) : QString()},
             {"dueTime", t.dueTime.isValid() ? t.dueTime.toString(QStringLiteral("HH:mm")) : QString()},
             {"dueMs", t.due.isValid() ? double(dueAt.toMSecsSinceEpoch()) : 0.0},
@@ -638,12 +638,12 @@ void CalendarStore::checkReminders()
                 // 只提醒「刚到点」的（10 分钟内），避免启动时把过去的提醒一次性全弹出来
                 if (fireAt > now || fireAt.secsTo(now) > 600 || s < now || m_fired.contains(key)) continue;
                 m_fired.insert(key);
-                const QString when = e.allDay ? QStringLiteral("全天")
+                const QString when = e.allDay ? tr("全天")
                                               : s.toString(QStringLiteral("HH:mm")) + QStringLiteral(" – ")
                                                     + s.addSecs(ical::durationSecs(e)).toString(QStringLiteral("HH:mm"));
                 QString body = when;
                 const qint64 mins = (now.secsTo(s) + 59) / 60;
-                body += mins <= 0 ? QStringLiteral(" · 现在开始") : QStringLiteral(" · %1 分钟后开始").arg(mins);
+                body += QStringLiteral(" · ") + (mins <= 0 ? tr("现在开始") : tr("%n 分钟后开始", "", int(mins)));
                 if (!e.location.isEmpty()) body += QStringLiteral(" · ") + e.location;
                 emit notificationRequested(QStringLiteral("cal:") + key, e.title, body);
             }
@@ -747,34 +747,34 @@ void CalendarStore::seed()
     };
     const int mondayOffset = 1 - d.dayOfWeek();
 
-    Cal work{QStringLiteral("work"), QStringLiteral("工作"), QStringLiteral("#4C8DFF"), QStringLiteral("local")};
-    work.events << ev(QStringLiteral("站会"), at(mondayOffset - 14, 9, 30), at(mondayOffset - 14, 9, 45), QStringLiteral("线上"), 5,
+    Cal work{QStringLiteral("work"), tr("工作"), QStringLiteral("#4C8DFF"), QStringLiteral("local")};
+    work.events << ev(tr("站会"), at(mondayOffset - 14, 9, 30), at(mondayOffset - 14, 9, 45), tr("线上"), 5,
                       QStringLiteral("FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR"))
-                << ev(QStringLiteral("产品评审"), at(0, 10, 0), at(0, 11, 0), QStringLiteral("3F 会议室 A"), 10)
-                << ev(QStringLiteral("设计走查"), at(0, 14, 0), at(0, 15, 30), QStringLiteral("设计部"), 15)
-                << ev(QStringLiteral("1:1 沟通"), at(0, 14, 30), at(0, 15, 0), {}, 5)
-                << ev(QStringLiteral("客户拜访"), at(2, 13, 0), at(2, 17, 0), QStringLiteral("科技园 B 座"), 30)
-                << ev(QStringLiteral("版本发布"), at(-2, 16, 0), at(-2, 17, 30), {}, 10)
-                << allDay(QStringLiteral("上海出差"), 3, 2);
+                << ev(tr("产品评审"), at(0, 10, 0), at(0, 11, 0), tr("3F 会议室 A"), 10)
+                << ev(tr("设计走查"), at(0, 14, 0), at(0, 15, 30), tr("设计部"), 15)
+                << ev(tr("1:1 沟通"), at(0, 14, 30), at(0, 15, 0), {}, 5)
+                << ev(tr("客户拜访"), at(2, 13, 0), at(2, 17, 0), tr("科技园 B 座"), 30)
+                << ev(tr("版本发布"), at(-2, 16, 0), at(-2, 17, 30), {}, 10)
+                << allDay(tr("上海出差"), 3, 2);
     // 示例会议链接（「加入会议」按钮用）
     work.events[0].url = QStringLiteral("https://meet.example.com/standup");
     work.events[1].url = QStringLiteral("https://meet.example.com/product-review");
     work.events[3].url = QStringLiteral("https://meet.example.com/one-on-one");
-    work.todos << todo(QStringLiteral("准备评审材料"), 0, QTime(9, 0), 1, true)
-               << todo(QStringLiteral("提交周报"), 0, QTime(18, 0), 5, false, QStringLiteral("本周进展 + 下周计划"));
+    work.todos << todo(tr("准备评审材料"), 0, QTime(9, 0), 1, true)
+               << todo(tr("提交周报"), 0, QTime(18, 0), 5, false, tr("本周进展 + 下周计划"));
 
-    Cal personal{QStringLiteral("personal"), QStringLiteral("个人"), QStringLiteral("#2ECC8A"), QStringLiteral("local")};
-    personal.events << ev(QStringLiteral("健身"), at(mondayOffset - 7 + 1, 19, 0), at(mondayOffset - 7 + 1, 20, 30), QStringLiteral("健身房"), -1,
+    Cal personal{QStringLiteral("personal"), tr("个人"), QStringLiteral("#2ECC8A"), QStringLiteral("local")};
+    personal.events << ev(tr("健身"), at(mondayOffset - 7 + 1, 19, 0), at(mondayOffset - 7 + 1, 20, 30), tr("健身房"), -1,
                           QStringLiteral("FREQ=WEEKLY;BYDAY=TU,TH"))
-                    << ev(QStringLiteral("午餐 · 老同学"), at(-1, 12, 0), at(-1, 13, 0), QStringLiteral("公司楼下"))
-                    << allDay(QStringLiteral("妈妈生日 🎂"), 5, 1, QStringLiteral("FREQ=YEARLY"));
+                    << ev(tr("午餐 · 老同学"), at(-1, 12, 0), at(-1, 13, 0), tr("公司楼下"))
+                    << allDay(tr("妈妈生日 🎂"), 5, 1, QStringLiteral("FREQ=YEARLY"));
 
-    Cal todos{QStringLiteral("todo"), QStringLiteral("待办"), QStringLiteral("#FF9F0A"), QStringLiteral("local")};
-    todos.todos << todo(QStringLiteral("报销发票"), -1, QTime(), 5)
-                << todo(QStringLiteral("预订上海机票"), 1, QTime(), 1, false, QStringLiteral("出差前确认航班"))
-                << todo(QStringLiteral("续费云服务器"), 6, QTime(10, 0), 0)
-                << todo(QStringLiteral("整理需求池"), INT_MIN, QTime(), 0)
-                << todo(QStringLiteral("更新简历"), -3, QTime(), 0, true);
+    Cal todos{QStringLiteral("todo"), tr("待办"), QStringLiteral("#FF9F0A"), QStringLiteral("local")};
+    todos.todos << todo(tr("报销发票"), -1, QTime(), 5)
+                << todo(tr("预订上海机票"), 1, QTime(), 1, false, tr("出差前确认航班"))
+                << todo(tr("续费云服务器"), 6, QTime(10, 0), 0)
+                << todo(tr("整理需求池"), INT_MIN, QTime(), 0)
+                << todo(tr("更新简历"), -3, QTime(), 0, true);
 
     m_cals << work << personal << todos;
     for (const Cal &c : std::as_const(m_cals)) saveCalendar(c);
@@ -782,7 +782,7 @@ void CalendarStore::seed()
     // 示例订阅：内置的 .ics（含时区、RECURRENCE-ID、VTODO），展示订阅日历的解析与只读效果
     Cal sub;
     sub.id = QStringLiteral("sub-team");
-    sub.name = QStringLiteral("团队公共日历（示例订阅）");
+    sub.name = tr("团队公共日历（示例订阅）");
     sub.color = QStringLiteral("#A66CFF");
     sub.kind = QStringLiteral("subscription");
     sub.url = kSample;

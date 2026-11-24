@@ -29,12 +29,12 @@ Item {
             var e = meetings[i]
             if (range === "today" && e.startIso !== t) continue
             if (next && e.key === next.key) continue
-            var g = e.startIso === t ? (e.endMs <= now ? "今天 · 已结束" : "今天") : Cal.relativeDay(Cal.parseIso(e.startIso)) || (Cal.md(Cal.parseIso(e.startIso)) + " " + Cal.weekdayName(Cal.parseIso(e.startIso)))
+            var g = e.startIso === t ? (e.endMs <= now ? qsTr("今天 · 已结束") : qsTr("今天")) : Cal.relativeDay(Cal.parseIso(e.startIso)) || (Cal.md(Cal.parseIso(e.startIso)) + " " + Cal.weekdayName(Cal.parseIso(e.startIso)))
             out.push({ group: g, first: g !== last, item: e })
             last = g
         }
         // 今天已结束的放最后
-        return out.filter(function (r) { return r.group !== "今天 · 已结束" }).concat(out.filter(function (r) { return r.group === "今天 · 已结束" }))
+        return out.filter(function (r) { return r.group !== qsTr("今天 · 已结束") }).concat(out.filter(function (r) { return r.group === qsTr("今天 · 已结束") }))
     }
 
     function joinLink(e) {
@@ -45,9 +45,9 @@ Item {
     }
     function countdown(e) {
         var mins = Math.round((e.startMs - now) / 60000)
-        if (e.startMs <= now) return "进行中 · 还剩 " + Math.max(1, Math.round((e.endMs - now) / 60000)) + " 分钟"
-        if (mins < 60) return mins + " 分钟后开始"
-        if (mins < 24 * 60) return Math.floor(mins / 60) + " 小时 " + (mins % 60) + " 分钟后开始"
+        if (e.startMs <= now) return qsTr("进行中 · 还剩 %n 分钟", "", Math.max(1, Math.round((e.endMs - now) / 60000)))
+        if (mins < 60) return qsTr("%n 分钟后开始", "", mins)
+        if (mins < 24 * 60) return qsTr("%1 小时 %2 分钟后开始").arg(Math.floor(mins / 60)).arg(mins % 60)
         return (Cal.relativeDay(new Date(e.startMs)) || Cal.md(new Date(e.startMs))) + " " + Cal.hm(e.startMs)
     }
     function open(e) { WindowManager.focusCalendar(); CalendarStore.requestOpen(e) }
@@ -86,7 +86,7 @@ Item {
                             NumberAnimation { to: 1; duration: 700 }
                         }
                     }
-                    Text { text: hero.live ? "正在进行" : "下一个会议"; font.pixelSize: 11; font.bold: true; color: Theme.accentText; opacity: 0.85 }
+                    Text { text: hero.live ? qsTr("正在进行") : qsTr("下一个会议"); font.pixelSize: 11; font.bold: true; color: Theme.accentText; opacity: 0.85 }
                 }
                 Text {
                     Layout.fillWidth: true
@@ -123,7 +123,7 @@ Item {
                         visible: link !== ""
                         implicitWidth: joinTxt.implicitWidth + 20; implicitHeight: 26; radius: 13
                         color: Theme.accentText
-                        Text { id: joinTxt; anchors.centerIn: parent; text: "加入会议"; font.pixelSize: 12; font.bold: true; color: Theme.accent }
+                        Text { id: joinTxt; anchors.centerIn: parent; text: qsTr("加入会议"); font.pixelSize: 12; font.bold: true; color: Theme.accent }
                         MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: Qt.openUrlExternally(parent.link) }
                     }
                 }
@@ -136,11 +136,11 @@ Item {
             Layout.fillWidth: true
             Text {
                 Layout.fillWidth: true
-                text: "今天 " + mp.meetings.filter(function (e) { return e.startIso === Cal.iso(Cal.today()) }).length + " 个会议"
+                text: qsTr("今天 %n 个会议", "", mp.meetings.filter(function (e) { return e.startIso === Cal.iso(Cal.today()) }).length)
                 font.pixelSize: 12; font.bold: true; color: Theme.textSecondary
             }
             Repeater {
-                model: [{ k: "today", t: "今天" }, { k: "week", t: "7 天" }]
+                model: [{ k: "today", t: qsTr("今天") }, { k: "week", t: qsTr("7 天") }]
                 Rectangle {
                     required property var modelData
                     readonly property bool on: mp.range === modelData.k
@@ -202,7 +202,7 @@ Item {
                             visible: mp.joinLink(row.it) !== "" && !row.past
                             text: "⇗"; font.pixelSize: 14; color: joinMa.containsMouse ? Theme.accent : Theme.textTertiary
                             MouseArea { id: joinMa; anchors.fill: parent; anchors.margins: -6; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: Qt.openUrlExternally(mp.joinLink(row.it)) }
-                            ToolTip.visible: joinMa.containsMouse; ToolTip.text: "加入会议"; ToolTip.delay: 400
+                            ToolTip.visible: joinMa.containsMouse; ToolTip.text: qsTr("加入会议"); ToolTip.delay: 400
                         }
                     }
                     MouseArea { id: ma; anchors.fill: parent; z: -1; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: mp.open(row.it) }
@@ -214,7 +214,7 @@ Item {
             visible: mp.rows.length === 0
             Layout.alignment: Qt.AlignHCenter
             Layout.bottomMargin: 30
-            text: mp.next === null ? "接下来没有会议 ☕" : (mp.range === "today" ? "今天没有其它会议了" : "没有其它会议")
+            text: mp.next === null ? qsTr("接下来没有会议 ☕") : (mp.range === "today" ? qsTr("今天没有其它会议了") : qsTr("没有其它会议"))
             color: Theme.textSecondary; font.pixelSize: 12
         }
     }

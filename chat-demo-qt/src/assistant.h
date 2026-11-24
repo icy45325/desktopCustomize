@@ -9,7 +9,7 @@ class QQmlEngine;
 class QJSEngine;
 
 // 日历 AI 小助手（本地规则引擎，离线可用）。
-// 理解中文自然语言：查日程 / 会议、查待办、找空闲时间、下一个会议、今日概览、新建活动、新建待办。
+// 理解中文和英文自然语言：查日程 / 会议、查待办、找空闲时间、下一个会议、今日概览、新建活动、新建待办。
 // respond() 是唯一的「大脑」入口：以后接入真正的大模型时，只需替换它（把 CalendarStore 的查询/写入作为工具暴露给模型）。
 class Assistant : public QObject
 {
@@ -19,7 +19,7 @@ class Assistant : public QObject
     /// [{role: "user"|"assistant", text, items: [事件/待办], action: {label, kind, uid} | {}, done}]
     Q_PROPERTY(QVariantList messages READ messages NOTIFY messagesChanged)
     Q_PROPERTY(bool thinking READ thinking NOTIFY thinkingChanged)
-    Q_PROPERTY(QStringList suggestions READ suggestions CONSTANT)
+    Q_PROPERTY(QStringList suggestions READ suggestions NOTIFY suggestionsChanged)
 public:
     static Assistant *instance();
     static Assistant *create(QQmlEngine *, QJSEngine *);
@@ -49,9 +49,11 @@ public:
 signals:
     void messagesChanged();
     void thinkingChanged();
+    void suggestionsChanged();
 
 private:
     Assistant();
+    QVariantMap respondImpl(const QString &text, const QDateTime &now);
     void append(const QVariantMap &m);
     QVariantList m_messages;
     bool m_thinking = false;

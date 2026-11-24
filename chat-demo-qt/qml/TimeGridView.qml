@@ -113,7 +113,7 @@ Item {
             Layout.preferredHeight: Math.max(28, tg.topRows * 22 + 8 + (tg.maxTop > tg.topRows ? 18 : 0))
             Item {
                 width: tg.gutter; height: parent.height
-                Text { anchors.right: parent.right; anchors.rightMargin: 8; y: 7; text: "全天"; font.pixelSize: 10; color: Theme.textTertiary }
+                Text { anchors.right: parent.right; anchors.rightMargin: 8; y: 7; text: qsTr("全天"); font.pixelSize: 10; color: Theme.textTertiary }
             }
             Repeater {
                 model: tg.dayList
@@ -144,7 +144,7 @@ Item {
                         }
                         Text {
                             visible: topCell.list.length > tg.topRows
-                            text: "还有 " + (topCell.list.length - tg.topRows) + " 项"
+                            text: qsTr("还有 %n 项", "", topCell.list.length - tg.topRows)
                             font.pixelSize: 10; color: Theme.textSecondary
                             leftPadding: 4
                             MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: tg.calendarView.showDay(topCell.modelData) }
@@ -250,7 +250,7 @@ Item {
                             border.width: 1.5; border.color: Theme.accent
                             Text {
                                 x: 6; y: 3
-                                text: "新活动 · " + Cal.pad(Math.floor(createMa.a / 60)) + ":" + Cal.pad(createMa.a % 60) + " – "
+                                text: qsTr("新活动") + " · " + Cal.pad(Math.floor(createMa.a / 60)) + ":" + Cal.pad(createMa.a % 60) + " – "
                                       + Cal.pad(Math.floor(createMa.b / 60) % 24) + ":" + Cal.pad(createMa.b % 60)
                                 font.pixelSize: 11; font.bold: true; color: Theme.accent
                             }

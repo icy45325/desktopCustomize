@@ -38,6 +38,7 @@ ApplicationWindow {
     // 快捷键作用域 = 本独立窗口
     Shortcut { sequence: "Ctrl+Shift+M"; onActivated: WindowManager.attach(win.convId) }
     Shortcut { sequence: "Ctrl+Shift+D"; onActivated: Theme.toggle() }
+    Shortcut { sequences: [StandardKey.Preferences, "Ctrl+,"]; onActivated: WindowManager.openSettings() }
     Shortcut { sequence: "Ctrl+W"; onActivated: WindowManager.closeDetached(win.convId) }
 
     onClosing: WindowManager.detachedClosed(convId)

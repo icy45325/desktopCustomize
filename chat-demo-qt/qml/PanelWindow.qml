@@ -11,7 +11,7 @@ ApplicationWindow {
     minimumWidth: 300
     minimumHeight: 420
     color: Theme.bgMid
-    title: "动态面板"
+    title: qsTr("动态面板")
     font.pixelSize: Theme.fontBody
 
     Rectangle {
@@ -23,9 +23,14 @@ ApplicationWindow {
         }
     }
 
-    SidePanel { anchors.fill: parent; inWindow: true }
+    // 语言切换时重建（Main.qml 已先切换 CalUtil 的日期格式）
+    Repeater {
+        model: [Settings.language]
+        delegate: SidePanel { width: win.contentItem.width; height: win.contentItem.height; inWindow: true }
+    }
 
     Shortcut { sequence: "Ctrl+Shift+D"; onActivated: Theme.toggle() }
+    Shortcut { sequences: [StandardKey.Preferences, "Ctrl+,"]; onActivated: WindowManager.openSettings() }
     Shortcut { sequence: "Ctrl+W"; onActivated: win.close() }
     Shortcut { sequence: "Ctrl+Shift+P"; onActivated: WindowManager.attachPanel() }
 

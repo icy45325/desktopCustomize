@@ -19,7 +19,7 @@ Item {
             Layout.leftMargin: 4
             spacing: 8
             Text {
-                text: "消息"
+                text: qsTr("消息")
                 font.pixelSize: 22
                 font.bold: true
                 color: Theme.text
@@ -32,7 +32,7 @@ Item {
                 text: Theme.dark ? "☀" : "☾"
                 font.pixelSize: 15
                 ToolTip.visible: hovered
-                ToolTip.text: Theme.dark ? "切换到浅色（⌘⇧D）" : "切换到深色（⌘⇧D）"
+                ToolTip.text: Theme.dark ? qsTr("切换到浅色（⌘⇧D）") : qsTr("切换到深色（⌘⇧D）")
                 onClicked: Theme.toggle()
                 // 点一下转一圈
                 contentItem: Text {
@@ -56,7 +56,7 @@ Item {
                 anchors.fill: parent; anchors.leftMargin: 12; anchors.rightMargin: 12
                 spacing: 8
                 Text { text: "⌕"; font.pixelSize: 16; color: Theme.textTertiary }
-                Text { text: "搜索会话"; font.pixelSize: Theme.fontBody; color: Theme.textTertiary }
+                Text { text: qsTr("搜索会话"); font.pixelSize: Theme.fontBody; color: Theme.textTertiary }
             }
         }
 
@@ -136,7 +136,7 @@ Item {
                                     Text {
                                         id: detachedLabel
                                         anchors.centerIn: parent
-                                        text: del.placement === "panel" ? "▥ 面板" : "⧉ 独立窗口"
+                                        text: del.placement === "panel" ? qsTr("▥ 面板") : qsTr("⧉ 独立窗口")
                                         font.pixelSize: 10; font.bold: true
                                         color: Theme.accent
                                     }
@@ -213,8 +213,8 @@ Item {
                 }
                 Menu {
                     id: menu
-                    MenuItem { text: "在新窗口打开"; onTriggered: WindowManager.detach(del.convId) }
-                    MenuItem { text: "在右侧面板打开"; onTriggered: WindowManager.openInPanel(del.convId) }
+                    MenuItem { text: qsTr("在新窗口打开"); onTriggered: WindowManager.detach(del.convId) }
+                    MenuItem { text: qsTr("在右侧面板打开"); onTriggered: WindowManager.openInPanel(del.convId) }
                 }
             }
         }
@@ -233,7 +233,7 @@ Item {
                 }
             }
             Text {
-                text: "在线 · " + (ChatStore.totalUnread > 0 ? ChatStore.totalUnread + " 条未读" : "没有未读")
+                text: qsTr("在线 · %1").arg(ChatStore.totalUnread > 0 ? qsTr("%n 条未读", "", ChatStore.totalUnread) : qsTr("没有未读"))
                 font.pixelSize: Theme.fontSmall
                 color: Theme.textTertiary
             }

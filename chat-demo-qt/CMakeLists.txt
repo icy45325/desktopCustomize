@@ -4,7 +4,7 @@ project(ChatDemoQt LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2 Widgets Network)
+find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2 Widgets Network LinguistTools)
 qt_standard_project_setup()
 
 qt_add_executable(ChatDemo src/main.cpp)
@@ -27,6 +27,7 @@ qt_add_qml_module(ChatDemo
         src/ical.h src/ical.cpp
         src/calendarstore.h src/calendarstore.cpp
         src/assistant.h src/assistant.cpp
+        src/appsettings.h src/appsettings.cpp
     QML_FILES
         qml/Main.qml
         qml/ConversationList.qml
@@ -56,6 +57,7 @@ qt_add_qml_module(ChatDemo
         qml/CalTextField.qml
         qml/CalCombo.qml
         qml/SidePanel.qml
+        qml/SettingsDialog.qml
         qml/PanelWindow.qml
         qml/MeetingPanel.qml
         qml/PanelCalendar.qml
@@ -63,6 +65,13 @@ qt_add_qml_module(ChatDemo
         qml/AssistantPanel.qml
     RESOURCES
         data/team-sample.ics
+)
+
+# 界面翻译：源文本为中文，i18n/ChatDemo_en.ts 为英文。编译时 lrelease 生成 .qm 并嵌入到 :/i18n/。
+# 改了界面文字后更新翻译：lupdate src qml -ts i18n/ChatDemo_en.ts，再填写译文。
+qt_add_translations(ChatDemo
+    TS_FILES i18n/ChatDemo_en.ts
+    RESOURCE_PREFIX /i18n
 )
 
 target_link_libraries(ChatDemo PRIVATE

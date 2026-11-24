@@ -1,6 +1,8 @@
 #include "ical.h"
 
+#include <QCoreApplication>
 #include <QHash>
+#include <QLocale>
 #include <QRegularExpression>
 #include <QSet>
 #include <QStringList>
@@ -520,31 +522,44 @@ QByteArray serialize(const QString &name, const QString &color, const QList<Even
 
 QString describeRule(const QString &rrule)
 {
+    // 翻译上下文 "ical"（源文本中文）。英文时星期用 Mon / Tue…，中文用 周一 / 周二…
     if (rrule.isEmpty()) return {};
     const Rule r = parseRule(rrule);
-    static const QStringList wd{QString(), QStringLiteral("一"), QStringLiteral("二"), QStringLiteral("三"), QStringLiteral("四"),
-                                QStringLiteral("五"), QStringLiteral("六"), QStringLiteral("日")};
-    const QString every = r.interval > 1 ? QStringLiteral("每 %1 ").arg(r.interval) : QStringLiteral("每");
+    const bool en = QLocale().language() == QLocale::English;
+    static const QStringList wdZh{QString(), QStringLiteral("一"), QStringLiteral("二"), QStringLiteral("三"), QStringLiteral("四"),
+                                  QStringLiteral("五"), QStringLiteral("六"), QStringLiteral("日")};
+    static const QStringList wdEn{QString(), "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
+    auto day = [&](int d) { return en ? wdEn[d] : QStringLiteral("周") + wdZh[d]; };
     QString s;
-    if (r.freq == QLatin1String("DAILY")) s = r.interval > 1 ? every + QStringLiteral("天") : QStringLiteral("每天");
-    else if (r.freq == QLatin1String("WEEKLY")) {
+    if (r.freq == QLatin1String("DAILY")) {
+        s = r.interval > 1 ? QCoreApplication::translate("ical", "每 %1 天").arg(r.interval) : QCoreApplication::translate("ical", "每天");
+    } else if (r.freq == QLatin1String("WEEKLY")) {
         QStringList days;
-        for (const ByDay &b : r.byDay) days << QStringLiteral("周") + wd[b.weekday];
+        for (const ByDay &b : r.byDay) days << day(b.weekday);
         if (days.size() == 5 && std::none_of(r.byDay.begin(), r.byDay.end(), [](const ByDay &b) { return b.weekday > 5; }))
-            s = QStringLiteral("每个工作日");
-        else
-            s = (r.interval > 1 ? every + QStringLiteral("周") : QStringLiteral("每周")) + (days.isEmpty() ? QString() : QStringLiteral(" ") + days.join(QStringLiteral("、")));
+            s = QCoreApplication::translate("ical", "每个工作日");
+        else {
+            s = r.interval > 1 ? QCoreApplication::translate("ical", "每 %1 周").arg(r.interval) : QCoreApplication::translate("ical", "每周");
+            if (!days.isEmpty()) s += QCoreApplication::translate("ical", "（%1）").arg(days.join(QCoreApplication::translate("ical", "、")));
+        }
     } else if (r.freq == QLatin1String("MONTHLY")) {
-        s = r.interval > 1 ? every + QStringLiteral("个月") : QStringLiteral("每月");
-        if (!r.byDay.isEmpty() && r.byDay[0].ordinal != 0)
-            s += r.byDay[0].ordinal > 0 ? QStringLiteral(" 第 %1 个周%2").arg(r.byDay[0].ordinal).arg(wd[r.byDay[0].weekday])
-                                        : QStringLiteral(" 最后一个周%1").arg(wd[r.byDay[0].weekday]);
+        s = r.interval > 1 ? QCoreApplication::translate("ical", "每 %1 个月").arg(r.interval) : QCoreApplication::translate("ical", "每月");
+        if (!r.byDay.isEmpty() && r.byDay[0].ordinal > 0)
+            s += QCoreApplication::translate("ical", "（第 %1 个%2）")
+                     .arg(en ? QStringList{"1st", "2nd", "3rd", "4th", "5th"}.value(r.byDay[0].ordinal - 1, QString::number(r.byDay[0].ordinal))
+                             : QString::number(r.byDay[0].ordinal))
+                     .arg(day(r.byDay[0].weekday));
+        else if (!r.byDay.isEmpty() && r.byDay[0].ordinal < 0)
+            s += QCoreApplication::translate("ical", "（最后一个%1）").arg(day(r.byDay[0].weekday));
         else if (!r.byMonthDay.isEmpty())
-            s += r.byMonthDay[0] > 0 ? QStringLiteral(" %1 日").arg(r.byMonthDay[0]) : QStringLiteral(" 最后一天");
-    } else if (r.freq == QLatin1String("YEARLY")) s = r.interval > 1 ? every + QStringLiteral("年") : QStringLiteral("每年");
-    else return QStringLiteral("自定义重复");
-    if (r.count) s += QStringLiteral("，共 %1 次").arg(r.count);
-    else if (r.until.isValid()) s += QStringLiteral("，至 ") + r.until.date().toString(QStringLiteral("yyyy-MM-dd"));
+            s += r.byMonthDay[0] > 0 ? QCoreApplication::translate("ical", "（%1 日）").arg(r.byMonthDay[0]) : QCoreApplication::translate("ical", "（最后一天）");
+    } else if (r.freq == QLatin1String("YEARLY")) {
+        s = r.interval > 1 ? QCoreApplication::translate("ical", "每 %1 年").arg(r.interval) : QCoreApplication::translate("ical", "每年");
+    } else {
+        return QCoreApplication::translate("ical", "自定义重复");
+    }
+    if (r.count) s += QCoreApplication::translate("ical", "，共 %n 次", "", r.count);
+    else if (r.until.isValid()) s += QCoreApplication::translate("ical", "，至 %1").arg(r.until.date().toString(QStringLiteral("yyyy-MM-dd")));
     return s;
 }
 

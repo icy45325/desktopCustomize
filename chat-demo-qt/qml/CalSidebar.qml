@@ -17,13 +17,13 @@ Item {
 
         RowLayout {
             Layout.leftMargin: 4
-            Text { text: "日历"; font.pixelSize: 22; font.bold: true; color: Theme.text; Layout.fillWidth: true }
+            Text { text: qsTr("日历"); font.pixelSize: 22; font.bold: true; color: Theme.text; Layout.fillWidth: true }
             MacButton {
                 circular: true
                 text: Theme.dark ? "☀" : "☾"
                 font.pixelSize: 15
                 onClicked: Theme.toggle()
-                ToolTip.visible: hovered; ToolTip.text: "切换主题（⌘⇧D）"; ToolTip.delay: 600
+                ToolTip.visible: hovered; ToolTip.text: qsTr("切换主题（⌘⇧D）"); ToolTip.delay: 600
             }
         }
 
@@ -34,16 +34,16 @@ Item {
             primary: true
             Layout.fillWidth: true
             implicitHeight: 36
-            text: "＋  创建"
+            text: qsTr("＋  创建")
             onClicked: createMenu.popup(createBtn, 0, createBtn.height + 4)
             Menu {
                 id: createMenu
-                MenuItem { text: "活动（C）"; onTriggered: side.calendarView.createAt() }
-                MenuItem { text: "全天活动"; onTriggered: { var d = side.calendarView.anchorDate; side.calendarView.createAt(d.getTime(), d.getTime(), true) } }
-                MenuItem { text: "待办"; onTriggered: side.calendarView.createAt(null, null, false, "todo") }
+                MenuItem { text: qsTr("活动（C）"); onTriggered: side.calendarView.createAt() }
+                MenuItem { text: qsTr("全天活动"); onTriggered: { var d = side.calendarView.anchorDate; side.calendarView.createAt(d.getTime(), d.getTime(), true) } }
+                MenuItem { text: qsTr("待办"); onTriggered: side.calendarView.createAt(null, null, false, "todo") }
                 MenuSeparator {}
-                MenuItem { text: "新建日历…"; onTriggered: newCalPopup.open() }
-                MenuItem { text: "订阅日历…"; onTriggered: side.calendarView.openSubscribe() }
+                MenuItem { text: qsTr("新建日历…"); onTriggered: newCalPopup.open() }
+                MenuItem { text: qsTr("订阅日历…"); onTriggered: side.calendarView.openSubscribe() }
             }
         }
 
@@ -89,7 +89,7 @@ Item {
                     Text { text: sh.text; font.pixelSize: 11; font.bold: true; color: Theme.textTertiary; Layout.fillWidth: true }
                     Text {
                         visible: sh.tip !== ""
-                        text: "＋"; font.pixelSize: 14; color: addMa.containsMouse ? Theme.accent : Theme.textTertiary
+                        text: qsTr("＋"); font.pixelSize: 14; color: addMa.containsMouse ? Theme.accent : Theme.textTertiary
                         MouseArea { id: addMa; anchors.fill: parent; anchors.margins: -4; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: sh.add() }
                         ToolTip.visible: addMa.containsMouse; ToolTip.text: sh.tip; ToolTip.delay: 500
                     }
@@ -142,18 +142,18 @@ Item {
                     }
                     ToolTip.visible: rowMa.containsMouse && row.cal.kind === "subscription"
                     ToolTip.delay: 700
-                    ToolTip.text: row.cal.url + "\n" + (row.cal.lastError !== "" ? "刷新失败：" + row.cal.lastError
-                                                       : row.cal.lastSync !== "" ? "上次同步 " + row.cal.lastSync : "尚未同步") + "\n只读 · 右键可刷新 / 修改"
+                    ToolTip.text: row.cal.url + "\n" + (row.cal.lastError !== "" ? qsTr("刷新失败：%1").arg(row.cal.lastError)
+                                                       : row.cal.lastSync !== "" ? qsTr("上次同步 %1").arg(row.cal.lastSync) : qsTr("尚未同步")) + qsTr("\n只读 · 右键可刷新 / 修改")
                     Menu {
                         id: calMenu
-                        MenuItem { text: "仅显示此日历"; onTriggered: { var cs = CalendarStore.calendars; for (var i = 0; i < cs.length; ++i) CalendarStore.setCalendarVisible(cs[i].id, cs[i].id === row.cal.id) } }
-                        MenuItem { text: "立即刷新"; visible: row.cal.kind === "subscription"; height: visible ? implicitHeight : 0; onTriggered: CalendarStore.refresh(row.cal.id) }
-                        MenuItem { text: "编辑订阅…"; visible: row.cal.kind === "subscription"; height: visible ? implicitHeight : 0; onTriggered: side.calendarView.openSubscribe(row.cal.id) }
-                        MenuItem { text: "重命名…"; visible: row.cal.kind === "local"; height: visible ? implicitHeight : 0; onTriggered: { renamePopup.calId = row.cal.id; renameField.text = row.cal.name; renamePopup.open() } }
-                        MenuItem { text: "导出为 .ics"; visible: row.cal.kind === "local"; height: visible ? implicitHeight : 0
-                            onTriggered: { var p = CalendarStore.exportCalendar(row.cal.id); toast.show(p !== "" ? "已导出到 " + p : "导出失败") } }
+                        MenuItem { text: qsTr("仅显示此日历"); onTriggered: { var cs = CalendarStore.calendars; for (var i = 0; i < cs.length; ++i) CalendarStore.setCalendarVisible(cs[i].id, cs[i].id === row.cal.id) } }
+                        MenuItem { text: qsTr("立即刷新"); visible: row.cal.kind === "subscription"; height: visible ? implicitHeight : 0; onTriggered: CalendarStore.refresh(row.cal.id) }
+                        MenuItem { text: qsTr("编辑订阅…"); visible: row.cal.kind === "subscription"; height: visible ? implicitHeight : 0; onTriggered: side.calendarView.openSubscribe(row.cal.id) }
+                        MenuItem { text: qsTr("重命名…"); visible: row.cal.kind === "local"; height: visible ? implicitHeight : 0; onTriggered: { renamePopup.calId = row.cal.id; renameField.text = row.cal.name; renamePopup.open() } }
+                        MenuItem { text: qsTr("导出为 .ics"); visible: row.cal.kind === "local"; height: visible ? implicitHeight : 0
+                            onTriggered: { var p = CalendarStore.exportCalendar(row.cal.id); toast.show(p !== "" ? qsTr("已导出到 %1").arg(p) : qsTr("导出失败")) } }
                         Menu {
-                            title: "颜色"
+                            title: qsTr("颜色")
                             Repeater {
                                 model: CalendarStore.palette()
                                 MenuItem {
@@ -162,23 +162,23 @@ Item {
                                     contentItem: Row {
                                         spacing: 8
                                         Rectangle { width: 14; height: 14; radius: 7; color: modelData; anchors.verticalCenter: parent.verticalCenter }
-                                        Text { text: modelData === row.cal.color ? "当前" : ""; color: Theme.textSecondary; font.pixelSize: 11; anchors.verticalCenter: parent.verticalCenter }
+                                        Text { text: modelData === row.cal.color ? qsTr("当前") : ""; color: Theme.textSecondary; font.pixelSize: 11; anchors.verticalCenter: parent.verticalCenter }
                                     }
                                     onTriggered: CalendarStore.setCalendarColor(row.cal.id, modelData)
                                 }
                             }
                         }
                         MenuSeparator {}
-                        MenuItem { text: row.cal.kind === "subscription" ? "取消订阅" : "删除日历"; onTriggered: { confirmRemove.calId = row.cal.id; confirmRemove.calName = row.cal.name; confirmRemove.open() } }
+                        MenuItem { text: row.cal.kind === "subscription" ? qsTr("取消订阅") : qsTr("删除日历"); onTriggered: { confirmRemove.calId = row.cal.id; confirmRemove.calName = row.cal.name; confirmRemove.open() } }
                     }
                 }
 
-                SectionHeader { text: "我的日历"; tip: "新建日历"; onAdd: newCalPopup.open() }
+                SectionHeader { text: qsTr("我的日历"); tip: qsTr("新建日历"); onAdd: newCalPopup.open() }
                 Repeater {
                     model: CalendarStore.calendars.filter(function (c) { return c.kind === "local" })
                     CalRow { required property var modelData; cal: modelData }
                 }
-                SectionHeader { text: "订阅日历"; tip: "通过 URL 订阅（Google / iCloud / Outlook 的 .ics 链接）"; onAdd: side.calendarView.openSubscribe() }
+                SectionHeader { text: qsTr("订阅日历"); tip: qsTr("通过 URL 订阅（Google / iCloud / Outlook 的 .ics 链接）"); onAdd: side.calendarView.openSubscribe() }
                 Repeater {
                     model: CalendarStore.calendars.filter(function (c) { return c.kind === "subscription" })
                     CalRow { required property var modelData; cal: modelData }
@@ -186,13 +186,13 @@ Item {
                 Text {
                     visible: CalendarStore.calendars.filter(function (c) { return c.kind === "subscription" }).length === 0
                     Layout.leftMargin: 6
-                    text: "还没有订阅。点 ＋ 粘贴 .ics / webcal 链接"
+                    text: qsTr("还没有订阅。点 ＋ 粘贴 .ics / webcal 链接")
                     font.pixelSize: 11; color: Theme.textTertiary
                     wrapMode: Text.Wrap
                     Layout.fillWidth: true
                 }
 
-                SectionHeader { text: "选项"; tip: ""; Layout.topMargin: 14 }
+                SectionHeader { text: qsTr("选项"); tip: ""; Layout.topMargin: 14 }
                 component OptionRow: Item {
                     id: opt
                     property string text
@@ -213,16 +213,16 @@ Item {
                     }
                     MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: opt.toggled() }
                 }
-                OptionRow { text: "在日历中显示待办"; checked: CalendarStore.showTodos; onToggled: CalendarStore.showTodos = !CalendarStore.showTodos }
-                OptionRow { text: "显示已完成的待办"; checked: CalendarStore.showCompleted; onToggled: CalendarStore.showCompleted = !CalendarStore.showCompleted }
-                OptionRow { text: "每周从周一开始"; checked: CalendarStore.weekStartsMonday; onToggled: CalendarStore.weekStartsMonday = !CalendarStore.weekStartsMonday }
+                OptionRow { text: qsTr("在日历中显示待办"); checked: CalendarStore.showTodos; onToggled: CalendarStore.showTodos = !CalendarStore.showTodos }
+                OptionRow { text: qsTr("显示已完成的待办"); checked: CalendarStore.showCompleted; onToggled: CalendarStore.showCompleted = !CalendarStore.showCompleted }
+                OptionRow { text: qsTr("每周从周一开始"); checked: CalendarStore.weekStartsMonday; onToggled: CalendarStore.weekStartsMonday = !CalendarStore.weekStartsMonday }
 
                 Text {
                     Layout.topMargin: 10
                     Layout.leftMargin: 6
                     Layout.fillWidth: true
                     wrapMode: Text.Wrap
-                    text: "快捷键：T 今天 · D/W/M/Y/A 切换视图 · J/K 翻页 · C 新建 · / 搜索"
+                    text: qsTr("快捷键：T 今天 · D/W/M/Y/A 切换视图 · J/K 翻页 · C 新建 · / 搜索")
                     font.pixelSize: 10
                     color: Theme.textTertiary
                 }
@@ -249,8 +249,8 @@ Item {
         ColumnLayout {
             anchors.fill: parent
             spacing: 12
-            Text { text: "新建日历"; font.pixelSize: 15; font.bold: true; color: Theme.text }
-            CalTextField { id: newCalName; Layout.fillWidth: true; placeholderText: "日历名称"; onAccepted: createCal() }
+            Text { text: qsTr("新建日历"); font.pixelSize: 15; font.bold: true; color: Theme.text }
+            CalTextField { id: newCalName; Layout.fillWidth: true; placeholderText: qsTr("日历名称"); onAccepted: createCal() }
             Row {
                 spacing: 8
                 Repeater {
@@ -265,8 +265,8 @@ Item {
             }
             RowLayout {
                 Layout.alignment: Qt.AlignRight
-                MacButton { text: "取消"; onClicked: newCalPopup.close() }
-                MacButton { text: "创建"; primary: true; enabled: newCalName.text.trim() !== ""; onClicked: createCal() }
+                MacButton { text: qsTr("取消"); onClicked: newCalPopup.close() }
+                MacButton { text: qsTr("创建"); primary: true; enabled: newCalName.text.trim() !== ""; onClicked: createCal() }
             }
         }
         function createCal() {
@@ -283,12 +283,12 @@ Item {
         ColumnLayout {
             anchors.fill: parent
             spacing: 12
-            Text { text: "重命名日历"; font.pixelSize: 15; font.bold: true; color: Theme.text }
+            Text { text: qsTr("重命名日历"); font.pixelSize: 15; font.bold: true; color: Theme.text }
             CalTextField { id: renameField; Layout.fillWidth: true; onAccepted: { CalendarStore.renameCalendar(renamePopup.calId, text); renamePopup.close() } }
             RowLayout {
                 Layout.alignment: Qt.AlignRight
-                MacButton { text: "取消"; onClicked: renamePopup.close() }
-                MacButton { text: "保存"; primary: true; onClicked: { CalendarStore.renameCalendar(renamePopup.calId, renameField.text); renamePopup.close() } }
+                MacButton { text: qsTr("取消"); onClicked: renamePopup.close() }
+                MacButton { text: qsTr("保存"); primary: true; onClicked: { CalendarStore.renameCalendar(renamePopup.calId, renameField.text); renamePopup.close() } }
             }
         }
     }
@@ -300,17 +300,17 @@ Item {
         ColumnLayout {
             anchors.fill: parent
             spacing: 12
-            Text { text: "删除「" + confirmRemove.calName + "」？"; font.pixelSize: 15; font.bold: true; color: Theme.text; Layout.fillWidth: true; wrapMode: Text.Wrap }
+            Text { text: qsTr("删除「%1」？").arg(confirmRemove.calName); font.pixelSize: 15; font.bold: true; color: Theme.text; Layout.fillWidth: true; wrapMode: Text.Wrap }
             Text {
                 Layout.fillWidth: true; wrapMode: Text.Wrap
-                text: confirmRemove.calId.indexOf("sub-") === 0 ? "取消订阅后，该日历的活动将不再显示。可随时重新订阅。"
-                                                              : "日历中的所有活动和待办都会被删除，且无法恢复。"
+                text: confirmRemove.calId.indexOf("sub-") === 0 ? qsTr("取消订阅后，该日历的活动将不再显示。可随时重新订阅。")
+                                                              : qsTr("日历中的所有活动和待办都会被删除，且无法恢复。")
                 font.pixelSize: 12; color: Theme.textSecondary
             }
             RowLayout {
                 Layout.alignment: Qt.AlignRight
-                MacButton { text: "取消"; onClicked: confirmRemove.close() }
-                MacButton { text: "删除"; primary: true; onClicked: { CalendarStore.removeCalendar(confirmRemove.calId); confirmRemove.close() } }
+                MacButton { text: qsTr("取消"); onClicked: confirmRemove.close() }
+                MacButton { text: qsTr("删除"); primary: true; onClicked: { CalendarStore.removeCalendar(confirmRemove.calId); confirmRemove.close() } }
             }
         }
     }

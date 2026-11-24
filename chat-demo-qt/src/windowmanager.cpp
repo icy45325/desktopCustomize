@@ -1,6 +1,7 @@
 #include "windowmanager.h"
 
 #include "appdata.h"
+#include "appsettings.h"
 #include "calendarstore.h"
 #include "chatstore.h"
 #include "uistatestore.h"
@@ -30,9 +31,7 @@ WindowManager *WindowManager::create(QQmlEngine *, QJSEngine *)
 
 WindowManager::WindowManager()
 {
-    m_dark = layoutSettings().value(QStringLiteral("ui/dark"), false).toBool();
-    if (qEnvironmentVariableIsSet("CHATDEMO_DARK"))
-        m_dark = qEnvironmentVariableIntValue("CHATDEMO_DARK") != 0;
+    connect(AppSettings::instance(), &AppSettings::darkChanged, this, &WindowManager::darkModeChanged);
     m_module = layoutSettings().value(QStringLiteral("ui/module"), QStringLiteral("chat")).toString();
     if (qEnvironmentVariableIsSet("CHATDEMO_MODULE"))
         m_module = qEnvironmentVariable("CHATDEMO_MODULE");
@@ -50,14 +49,7 @@ WindowManager::WindowManager()
 
 void WindowManager::setEngine(QQmlEngine *engine) { m_engine = engine; }
 
-void WindowManager::setDarkMode(bool v)
-{
-    if (m_dark == v)
-        return;
-    m_dark = v;
-    layoutSettings().setValue(QStringLiteral("ui/dark"), v);
-    emit darkModeChanged();
-}
+bool WindowManager::darkMode() const { return AppSettings::instance()->dark(); }
 
 void WindowManager::setModule(const QString &m)
 {
@@ -66,6 +58,11 @@ void WindowManager::setModule(const QString &m)
     m_module = m;
     layoutSettings().setValue(QStringLiteral("ui/module"), m);
     emit moduleChanged();
+}
+
+void WindowManager::setDarkMode(bool v)
+{
+    AppSettings::instance()->setThemeMode(v ? QStringLiteral("dark") : QStringLiteral("light"));
 }
 
 // MARK: - 动态面板
@@ -224,6 +221,12 @@ void WindowManager::closePanelConv()
         setGhost(QString());
     setPanelConv(QString());
     saveLayout();
+}
+
+void WindowManager::openSettings()
+{
+    raiseWindow(m_mainWindow);
+    emit settingsRequested();
 }
 
 void WindowManager::focusCalendar()

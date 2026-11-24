@@ -64,9 +64,12 @@ Item {
 
     Component.onDestruction: {
         flushNow()
-        WindowManager.setActiveVisible(convId, false)
-        WindowManager.setComposing(convId, false)
-        if (ChatStore.unread(convId) === 0) UIStateStore.setDivider(convId, "")
+        // 界面重建（如切换语言）时新视图可能已先挂载并接手租约：那样就不要再改可见 / 输入法 / 分隔线
+        if (UIStateStore.holdsLease(convId, token)) {
+            WindowManager.setActiveVisible(convId, false)
+            WindowManager.setComposing(convId, false)
+            if (ChatStore.unread(convId) === 0) UIStateStore.setDivider(convId, "")
+        }
         UIStateStore.releaseLease(convId, token)
     }
 
@@ -163,7 +166,7 @@ Item {
                         Behavior on color { ColorAnimation { duration: 260 } }
                     }
                     Text {
-                        text: root.msgs ? root.msgs.count + " 条消息" : ""
+                        text: root.msgs ? qsTr("%n 条消息", "", root.msgs.count) : ""
                         font.pixelSize: Theme.fontSmall
                         color: Theme.textTertiary
                     }
@@ -171,7 +174,7 @@ Item {
                 Item { Layout.fillWidth: true }
                 MacButton {
                     objectName: "moveButton"
-                    text: root.detached ? "⇲ 合并到主窗口" : "⧉ 拆出窗口"
+                    text: root.detached ? qsTr("⇲ 合并到主窗口") : qsTr("⧉ 拆出窗口")
                     onClicked: root.detached ? WindowManager.attach(root.convId) : WindowManager.detach(root.convId)
                 }
             }
@@ -248,7 +251,7 @@ Item {
                         Text {
                             id: dividerText
                             anchors.centerIn: parent
-                            text: (root.msgs.count - root.dividerIndex()) + " 条新消息 ↓"
+                            text: qsTr("%n 条新消息 ↓", "", root.msgs.count - root.dividerIndex())
                             font.pixelSize: Theme.fontSmall; font.bold: true
                             color: Theme.accentText
                         }
@@ -363,7 +366,7 @@ Item {
                     }
                     Menu {
                         id: replyMenu
-                        MenuItem { text: "引用回复"; onTriggered: root.write({ replyToMsgId: row.msgId }) }
+                        MenuItem { text: qsTr("引用回复"); onTriggered: root.write({ replyToMsgId: row.msgId }) }
                     }
                 }
             }
@@ -384,7 +387,7 @@ Item {
                 RowLayout {
                     anchors.fill: parent; anchors.leftMargin: 14; anchors.rightMargin: 8
                     spacing: 8
-                    Text { text: "回复"; font.pixelSize: Theme.fontSmall; font.bold: true; color: Theme.accent }
+                    Text { text: qsTr("回复"); font.pixelSize: Theme.fontSmall; font.bold: true; color: Theme.accent }
                     Text {
                         Layout.fillWidth: true
                         text: root.msgs ? root.msgs.previewOf(root.st.replyToMsgId) : ""
@@ -443,7 +446,7 @@ Item {
                             objectName: "draftInput"
                             width: parent.width
                             wrapMode: TextArea.Wrap
-                            placeholderText: "输入消息…"
+                            placeholderText: qsTr("输入消息…")
                             placeholderTextColor: Theme.textTertiary
                             color: Theme.text
                             font.pixelSize: Theme.fontBody
@@ -466,7 +469,7 @@ Item {
                         id: sendBtn
                         Layout.alignment: Qt.AlignVCenter
                         primary: true
-                        text: "发送 ➤"
+                        text: qsTr("发送 ➤")
                         enabled: input.text.trim() !== ""
                         onClicked: root.send()
                         SequentialAnimation {

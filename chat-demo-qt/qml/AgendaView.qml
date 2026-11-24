@@ -99,7 +99,7 @@ Item {
                 }
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: (row.day.getFullYear() !== new Date().getFullYear() ? row.day.getFullYear() + "年" : "") + (row.day.getMonth() + 1) + "月 " + Cal.weekdayName(row.day)
+                    text: (row.day.getFullYear() !== new Date().getFullYear() ? Cal.ym(row.day) : Cal.monthShort(row.day)) + " " + Cal.weekdayName(row.day)
                           + (Cal.relativeDay(row.day) !== "" ? " · " + Cal.relativeDay(row.day) : "")
                     font.pixelSize: 11
                     color: Cal.isToday(row.day) ? Theme.accent : Theme.textSecondary
@@ -133,9 +133,9 @@ Item {
                     }
                     Text {
                         Layout.preferredWidth: 112
-                        text: row.it.type === "todo" ? (row.it.dueTime !== "" ? "截止 " + row.it.dueTime : "待办")
-                            : row.it.allDay ? "全天"
-                            : (row.it.multiDay ? Cal.hm(row.it.startMs) + " 起" : Cal.hm(row.it.startMs) + " – " + Cal.hm(row.it.endMs))
+                        text: row.it.type === "todo" ? (row.it.dueTime !== "" ? qsTr("截止 %1").arg(row.it.dueTime) : qsTr("待办"))
+                            : row.it.allDay ? qsTr("全天")
+                            : (row.it.multiDay ? qsTr("%1 起").arg(Cal.hm(row.it.startMs)) : Cal.hm(row.it.startMs) + " – " + Cal.hm(row.it.endMs))
                         font.pixelSize: 12
                         color: Theme.textSecondary
                     }
@@ -172,7 +172,7 @@ Item {
             MacButton {
                 anchors.centerIn: parent
                 visible: av.query === ""
-                text: "再看 30 天"
+                text: qsTr("再看 30 天")
                 onClicked: av.span += 30
             }
         }
@@ -185,7 +185,7 @@ Item {
         Text { anchors.horizontalCenter: parent.horizontalCenter; text: av.query !== "" ? "⌕" : "☼"; font.pixelSize: 38; color: Theme.accent; opacity: 0.4 }
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: av.query !== "" ? "没有找到与「" + av.query + "」相关的日程" : "接下来 " + av.span + " 天没有安排"
+            text: av.query !== "" ? qsTr("没有找到与「%1」相关的日程").arg(av.query) : qsTr("接下来 %1 天没有安排").arg(av.span)
             color: Theme.textSecondary
         }
     }

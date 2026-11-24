@@ -25,6 +25,10 @@ public:
     Q_INVOKABLE bool update(const QString &convId, const QVariantMap &patch, const QString &token);
     /// 迁移前调用：通知旧视图把防抖队列里尚未写回的内容立即写入。
     Q_INVOKABLE void flush(const QString &convId);
+    /// 所有持有租约的会话都 flush（切换界面语言、整体重建界面前调用）
+    void flushAll();
+    /// 视图销毁时用：租约仍是自己的才清理「可见 / 输入法」等标记（被新视图接手后就不要再动了）
+    Q_INVOKABLE bool holdsLease(const QString &convId, const QString &token) const { return !token.isEmpty() && m_leases.value(convId) == token; }
     /// 由 ChatStore 在新未读到来时写入分隔线，不经过租约。
     Q_INVOKABLE void setDivider(const QString &convId, const QString &msgId);
 

@@ -84,24 +84,24 @@ Popup {
         InfoRow {
             icon: "◷"
             text: !pop.item ? "" : pop.isTodo
-                  ? (pop.item.dueIso === "" ? "无截止日期" : "截止 " + Cal.md(Cal.parseIso(pop.item.dueIso)) + " " + Cal.weekdayName(Cal.parseIso(pop.item.dueIso)) + (pop.item.dueTime !== "" ? " " + pop.item.dueTime : "") + (pop.item.overdue ? "（已逾期）" : ""))
+                  ? (pop.item.dueIso === "" ? qsTr("无截止日期") : qsTr("截止 %1").arg(Cal.dayTitle(Cal.parseIso(pop.item.dueIso)) + (pop.item.dueTime !== "" ? " " + pop.item.dueTime : "")) + (pop.item.overdue ? qsTr("（已逾期）") : ""))
                   : Cal.rangeText(pop.item)
             textColor: pop.isTodo && pop.item && pop.item.overdue ? Theme.danger : Theme.text
         }
         InfoRow { icon: "↻"; text: pop.item && !pop.isTodo && pop.item.recurring ? CalendarStore.describeRule(pop.item.rrule) : "" }
-        InfoRow { icon: "!"; text: pop.isTodo && pop.item.priority > 0 ? "优先级：" + (pop.item.priority <= 4 ? "高" : pop.item.priority === 5 ? "中" : "低") : "" }
+        InfoRow { icon: "!"; text: pop.isTodo && pop.item.priority > 0 ? qsTr("优先级：%1").arg(Cal.priorityName(pop.item.priority)) : "" }
         InfoRow { icon: "⌖"; text: pop.item && !pop.isTodo ? pop.item.location : "" }
         InfoRow {
             icon: "♪"
             text: !pop.item || pop.isTodo || pop.item.reminder < 0 ? ""
-                  : Cal.reminderOptions.filter(function (o) { return o.value === pop.item.reminder })
-                        .map(function (o) { return "提醒：" + o.label })[0] || ("提醒：提前 " + pop.item.reminder + " 分钟")
+                  : Cal.reminderOptions().filter(function (o) { return o.value === pop.item.reminder })
+                        .map(function (o) { return qsTr("提醒：%1").arg(o.label) })[0] || qsTr("提醒：提前 %1 分钟").arg(pop.item.reminder)
         }
         InfoRow { icon: "≡"; text: pop.item ? pop.item.notes : "" }
         InfoRow { icon: "⇗"; text: pop.item && pop.item.url ? pop.item.url : "" }
         InfoRow {
             icon: "▣"
-            text: pop.item ? pop.item.calendarName + (pop.item.readOnly ? " · 订阅日历（只读）" : "") : ""
+            text: pop.item ? pop.item.calendarName + (pop.item.readOnly ? qsTr(" · 订阅日历（只读）") : "") : ""
         }
 
         // 操作
@@ -113,7 +113,7 @@ Popup {
             spacing: 8
             Item { Layout.fillWidth: true }
             MacButton {
-                text: "删除"
+                text: qsTr("删除")
                 onClicked: {
                     if (!pop.isTodo && pop.item.recurring) { confirmRow.visible = true; return }
                     pop.isTodo ? CalendarStore.deleteTodo(pop.item.uid) : CalendarStore.deleteEvent(pop.item.uid)
@@ -121,7 +121,7 @@ Popup {
                 }
             }
             MacButton {
-                text: "编辑"
+                text: qsTr("编辑")
                 primary: true
                 objectName: "detailEdit"
                 onClicked: { var it = pop.item; pop.close(); pop.calendarView.editItem(it) }
@@ -133,9 +133,9 @@ Popup {
             visible: false
             Layout.fillWidth: true
             spacing: 8
-            Text { text: "删除重复活动："; font.pixelSize: 12; color: Theme.textSecondary; Layout.fillWidth: true }
-            MacButton { text: "仅此次"; onClicked: { CalendarStore.deleteEvent(pop.item.uid, "this", pop.item.startMs); pop.close() } }
-            MacButton { text: "所有"; primary: true; onClicked: { CalendarStore.deleteEvent(pop.item.uid, "all"); pop.close() } }
+            Text { text: qsTr("删除重复活动："); font.pixelSize: 12; color: Theme.textSecondary; Layout.fillWidth: true }
+            MacButton { text: qsTr("仅此次"); onClicked: { CalendarStore.deleteEvent(pop.item.uid, "this", pop.item.startMs); pop.close() } }
+            MacButton { text: qsTr("所有"); primary: true; onClicked: { CalendarStore.deleteEvent(pop.item.uid, "all"); pop.close() } }
         }
     }
 }

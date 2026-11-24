@@ -31,11 +31,11 @@ Item {
             }
             Column {
                 Layout.fillWidth: true
-                Text { text: "日历小助手"; font.pixelSize: 13; font.bold: true; color: Theme.text }
-                Text { text: Assistant.thinking ? "正在思考…" : "查日程 · 找空闲 · 建活动 / 待办"; font.pixelSize: 10; color: Theme.textTertiary }
+                Text { text: qsTr("日历小助手"); font.pixelSize: 13; font.bold: true; color: Theme.text }
+                Text { text: Assistant.thinking ? qsTr("正在思考…") : qsTr("查日程 · 找空闲 · 建活动 / 待办"); font.pixelSize: 10; color: Theme.textTertiary }
             }
             Text {
-                text: "清空"; font.pixelSize: 11
+                text: qsTr("清空"); font.pixelSize: 11
                 color: clrMa.containsMouse ? Theme.accent : Theme.textTertiary
                 MouseArea { id: clrMa; anchors.fill: parent; anchors.margins: -4; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: Assistant.clear() }
             }
@@ -123,7 +123,7 @@ Item {
                                     Text {
                                         width: parent.width
                                         readonly property var it: card.modelData
-                                        text: card.todo ? (it.dueIso !== "" ? "截止 " + Cal.md(Cal.parseIso(it.dueIso)) + (it.dueTime !== "" ? " " + it.dueTime : "") : "无截止日期")
+                                        text: card.todo ? (it.dueIso !== "" ? qsTr("截止 %1").arg(Cal.md(Cal.parseIso(it.dueIso)) + (it.dueTime !== "" ? " " + it.dueTime : "")) : qsTr("无截止日期"))
                                                                        : Cal.rangeText(it)
                                         font.pixelSize: 10; color: Theme.textSecondary; elide: Text.ElideRight
                                     }
@@ -144,7 +144,7 @@ Item {
                     MacButton {
                         visible: !msg.mine && msg.modelData.action.label !== undefined
                         enabled: !msg.modelData.done
-                        text: msg.modelData.done ? "已撤销" : (msg.modelData.action.label || "")
+                        text: msg.modelData.done ? qsTr("已撤销") : (msg.modelData.action.label || "")
                         implicitHeight: 26
                         font.pixelSize: 11
                         onClicked: Assistant.runAction(msg.index)
@@ -214,7 +214,7 @@ Item {
                     objectName: "assistantInput"
                     Layout.fillWidth: true
                     background: null
-                    placeholderText: "问问日程，或说「明天3点 评审」"
+                    placeholderText: qsTr("问问日程，或说「明天3点 评审」")
                     placeholderTextColor: Theme.textTertiary
                     color: Theme.text
                     font.pixelSize: 12

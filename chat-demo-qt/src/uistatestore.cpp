@@ -67,6 +67,13 @@ QString UIStateStore::acquireLease(const QString &convId)
     return token;
 }
 
+void UIStateStore::flushAll()
+{
+    const QStringList ids = m_leases.keys();
+    for (const QString &id : ids)
+        flush(id);
+}
+
 void UIStateStore::releaseLease(const QString &convId, const QString &token)
 {
     if (m_leases.value(convId) == token)

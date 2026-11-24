@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import ChatDemo
+import "CalUtil.js" as Cal
 
 // 全局动态面板：消息 / 日历两个模块共用，也可以拆成独立窗口（PanelWindow）。
 // 标签：待办 / 会议 / 日历 / 聊天 / 助手。停靠时隐藏与当前模块重复的标签（日历模块不显示「日历」，消息模块不显示「聊天」）。
@@ -13,11 +14,11 @@ Item {
     readonly property string hostModule: inWindow ? "" : WindowManager.module
 
     readonly property var allTabs: [
-        { k: "todo", t: "待办", g: "☑" },
-        { k: "meetings", t: "会议", g: "◷" },
-        { k: "calendar", t: "日历", g: "▦" },
-        { k: "chat", t: "聊天", g: "✉" },
-        { k: "assistant", t: "助手", g: "✦" }
+        { k: "todo", t: qsTr("待办"), g: "☑" },
+        { k: "meetings", t: qsTr("会议"), g: "◷" },
+        { k: "calendar", t: qsTr("日历"), g: "▦" },
+        { k: "chat", t: qsTr("聊天"), g: "✉" },
+        { k: "assistant", t: qsTr("助手"), g: "✦" }
     ]
     readonly property var tabs: allTabs.filter(function (t) {
         return !(t.k === "calendar" && hostModule === "calendar") && !(t.k === "chat" && hostModule === "chat")
@@ -65,7 +66,7 @@ Item {
                                     anchors.centerIn: parent
                                     spacing: 1
                                     Text { anchors.horizontalCenter: parent.horizontalCenter; text: modelData.g; font.pixelSize: 14; color: parent.parent.on ? Theme.accent : Theme.textSecondary }
-                                    Text { anchors.horizontalCenter: parent.horizontalCenter; text: modelData.t; font.pixelSize: 10; font.bold: parent.parent.on; color: parent.parent.on ? Theme.accent : Theme.textTertiary }
+                                    Text { anchors.horizontalCenter: parent.horizontalCenter; text: modelData.t; font.pixelSize: Cal.isEn() ? 9 : 10; font.bold: parent.parent.on; color: parent.parent.on ? Theme.accent : Theme.textTertiary }
                                 }
                                 // 待办数 / 面板会话未读
                                 Rectangle {
@@ -98,10 +99,10 @@ Item {
                     HeadBtn {
                         objectName: "panelDetachToggle"
                         glyph: panel.inWindow ? "⇲" : "⧉"
-                        tip: panel.inWindow ? "合并回主窗口" : "在独立窗口中打开"
+                        tip: panel.inWindow ? qsTr("合并回主窗口") : qsTr("在独立窗口中打开")
                         onClicked: panel.inWindow ? WindowManager.attachPanel() : WindowManager.detachPanel()
                     }
-                    HeadBtn { glyph: "✕"; tip: "关闭面板（⌘⇧P）"; onClicked: WindowManager.panelOpen = false }
+                    HeadBtn { glyph: "✕"; tip: qsTr("关闭面板（⌘⇧P）"); onClicked: WindowManager.panelOpen = false }
                 }
             }
 

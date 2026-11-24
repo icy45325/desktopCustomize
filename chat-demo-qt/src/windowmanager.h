@@ -26,7 +26,7 @@ class WindowManager : public QObject
     Q_PROPERTY(QString mainSelection READ mainSelection NOTIFY mainSelectionChanged)
     /// 刚被拆出的会话，主窗口右侧显示「已在独立窗口打开」。
     Q_PROPERTY(QString ghost READ ghost NOTIFY ghostChanged)
-    /// 深色模式，持久化到 layout.ini；所有窗口共享。
+    /// 生效的深色模式（兼容旧接口；实际由 AppSettings.themeMode 决定）。写入 = 切到浅色 / 深色固定模式。
     Q_PROPERTY(bool darkMode READ darkMode WRITE setDarkMode NOTIFY darkModeChanged)
     /// 主窗口当前模块："chat" | "calendar"，持久化到 layout.ini。
     Q_PROPERTY(QString module READ module WRITE setModule NOTIFY moduleChanged)
@@ -51,12 +51,14 @@ public:
     Q_INVOKABLE void closePanelConv();
     /// 面板里点了日历条目 / 「在日历中打开」：切到日历模块并前置主窗口
     Q_INVOKABLE void focusCalendar();
+    /// 任意窗口按 ⌘,：前置主窗口并打开设置
+    Q_INVOKABLE void openSettings();
     QQuickWindow *panelWindow() const { return m_panelWindow; }
 
     QString module() const { return m_module; }
     void setModule(const QString &m);
 
-    bool darkMode() const { return m_dark; }
+    bool darkMode() const;
     void setDarkMode(bool v);
 
     static WindowManager *instance();
@@ -99,6 +101,7 @@ signals:
     void darkModeChanged();
     void moduleChanged();
     void panelChanged();
+    void settingsRequested();
     void mainSelectionChanged();
     void ghostChanged();
     void placementChanged(const QString &convId);
@@ -130,7 +133,6 @@ private:
     QSet<QString> m_composing;
     QString m_mainSelection;
     QString m_ghost;
-    bool m_dark = false;
     QString m_module = QStringLiteral("chat");
     bool m_panelOpen = true;
     QString m_panelTab = QStringLiteral("todo");

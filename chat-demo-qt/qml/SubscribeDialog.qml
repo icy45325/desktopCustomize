@@ -23,12 +23,12 @@ Popup {
     property bool failed: false
 
     readonly property var refreshOptions: [
-        { label: "每 15 分钟", value: 15 }, { label: "每小时", value: 60 }, { label: "每 6 小时", value: 360 },
-        { label: "每天", value: 1440 }, { label: "不自动刷新", value: 0 }
+        { label: qsTr("每 15 分钟"), value: 15 }, { label: qsTr("每小时"), value: 60 }, { label: qsTr("每 6 小时"), value: 360 },
+        { label: qsTr("每天"), value: 1440 }, { label: qsTr("不自动刷新"), value: 0 }
     ]
     readonly property var presets: [
-        { label: "示例：团队公共日历（内置）", url: "qrc:/qt/qml/ChatDemo/data/team-sample.ics" },
-        { label: "中国节假日（Google 公共日历）", url: "https://calendar.google.com/calendar/ical/zh-cn.china%23holiday%40group.v.calendar.google.com/public/basic.ics" }
+        { label: qsTr("示例：团队公共日历（内置）"), url: "qrc:/qt/qml/ChatDemo/data/team-sample.ics" },
+        { label: qsTr("中国节假日（Google 公共日历）"), url: "https://calendar.google.com/calendar/ical/zh-cn.china%23holiday%40group.v.calendar.google.com/public/basic.ics" }
     ]
 
     function openFor(id) {
@@ -64,7 +64,7 @@ Popup {
             return
         }
         failed = false
-        status = "正在订阅…"
+        status = qsTr("正在订阅…")
         pendingId = "?"   // 本地文件会同步完成，先占位以接收 syncFinished
         var id = CalendarStore.subscribe(url, nameField.text, color, minutes)
         if (pendingId === "?") {
@@ -81,19 +81,18 @@ Popup {
             if (dlg.pendingId !== "?" && dlg.pendingId !== id) return
             dlg.pendingId = ""
             if (ok) { dlg.status = ""; dlg.close() }
-            else { dlg.failed = true; dlg.status = "已添加，但首次同步失败：" + error + "（可稍后在列表里右键「立即刷新」）" }
+            else { dlg.failed = true; dlg.status = qsTr("已添加，但首次同步失败：%1（可稍后在列表里右键「立即刷新」）").arg(error) }
         }
     }
 
     contentItem: ColumnLayout {
         spacing: 12
 
-        Text { text: dlg.editId !== "" ? "编辑订阅" : "订阅日历"; font.pixelSize: 17; font.bold: true; color: Theme.text }
+        Text { text: dlg.editId !== "" ? qsTr("编辑订阅") : qsTr("订阅日历"); font.pixelSize: 17; font.bold: true; color: Theme.text }
         Text {
             Layout.fillWidth: true
             wrapMode: Text.Wrap
-            text: "粘贴日历的 iCal（.ics）地址：Google 日历 → 设置 → 某个日历 →「iCal 格式的公开 / 私密地址」；"
-                  + "macOS / iCloud 日历 → 共享 →「公开日历」；Outlook → 发布日历 → ICS。也支持 webcal:// 和本地 .ics 文件路径。"
+            text: qsTr("粘贴日历的 iCal（.ics）地址：Google 日历 → 设置 → 某个日历 →「iCal 格式的公开 / 私密地址」；macOS / iCloud 日历 → 共享 →「公开日历」；Outlook → 发布日历 → ICS。也支持 webcal:// 和本地 .ics 文件路径。")
             font.pixelSize: 11
             color: Theme.textSecondary
             lineHeight: 1.2
@@ -103,7 +102,7 @@ Popup {
             id: urlField
             objectName: "subscribeUrl"
             Layout.fillWidth: true
-            placeholderText: "https://… 或 webcal://… 或 /path/to/calendar.ics"
+            placeholderText: qsTr("https://… 或 webcal://… 或 /path/to/calendar.ics")
             onAccepted: dlg.submit()
         }
 
@@ -128,9 +127,9 @@ Popup {
             Layout.fillWidth: true
             columns: 2
             columnSpacing: 12; rowSpacing: 10
-            Text { text: "名称"; color: Theme.textSecondary; font.pixelSize: 12 }
-            CalTextField { id: nameField; Layout.fillWidth: true; placeholderText: "留空则使用日历自带的名称" }
-            Text { text: "颜色"; color: Theme.textSecondary; font.pixelSize: 12 }
+            Text { text: qsTr("名称"); color: Theme.textSecondary; font.pixelSize: 12 }
+            CalTextField { id: nameField; Layout.fillWidth: true; placeholderText: qsTr("留空则使用日历自带的名称") }
+            Text { text: qsTr("颜色"); color: Theme.textSecondary; font.pixelSize: 12 }
             Row {
                 spacing: 8
                 Repeater {
@@ -143,7 +142,7 @@ Popup {
                     }
                 }
             }
-            Text { text: "自动刷新"; color: Theme.textSecondary; font.pixelSize: 12 }
+            Text { text: qsTr("自动刷新"); color: Theme.textSecondary; font.pixelSize: 12 }
             CalCombo { id: refreshCombo; Layout.preferredWidth: 160; model: dlg.refreshOptions; currentIndex: 1 }
         }
 
@@ -160,11 +159,11 @@ Popup {
             Layout.fillWidth: true
             Layout.topMargin: 4
             Item { Layout.fillWidth: true }
-            MacButton { text: dlg.failed ? "关闭" : "取消"; onClicked: dlg.close() }
+            MacButton { text: dlg.failed ? qsTr("关闭") : qsTr("取消"); onClicked: dlg.close() }
             MacButton {
                 objectName: "subscribeSubmit"
                 visible: !dlg.failed
-                text: dlg.editId !== "" ? "保存" : "订阅"
+                text: dlg.editId !== "" ? qsTr("保存") : qsTr("订阅")
                 primary: true
                 enabled: urlField.text.trim() !== "" && dlg.pendingId === ""
                 onClicked: dlg.submit()

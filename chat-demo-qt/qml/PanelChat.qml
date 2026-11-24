@@ -23,7 +23,7 @@ Item {
         header: Text {
             width: convList.width
             bottomPadding: 6; leftPadding: 4
-            text: "选择会话，在面板里聊天"
+            text: qsTr("选择会话，在面板里聊天")
             font.pixelSize: 11; color: Theme.textTertiary
         }
         delegate: Rectangle {
@@ -47,7 +47,7 @@ Item {
                     Text { width: parent.width; text: title; font.pixelSize: 12; font.bold: true; color: Theme.text; elide: Text.ElideRight }
                     Text {
                         width: parent.width
-                        text: placement === "detached" ? "⧉ 已在独立窗口" : placement === "main" ? "正在主窗口中查看" : lastText
+                        text: placement === "detached" ? qsTr("⧉ 已在独立窗口") : placement === "main" ? qsTr("正在主窗口中查看") : lastText
                         font.pixelSize: 11; color: Theme.textSecondary; elide: Text.ElideRight
                     }
                 }
@@ -74,7 +74,7 @@ Item {
             Text {
                 text: "‹"; font.pixelSize: 20; color: backMa.containsMouse ? Theme.accent : Theme.textSecondary
                 MouseArea { id: backMa; anchors.fill: parent; anchors.margins: -6; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: WindowManager.closePanelConv() }
-                ToolTip.visible: backMa.containsMouse; ToolTip.text: "返回会话列表"; ToolTip.delay: 500
+                ToolTip.visible: backMa.containsMouse; ToolTip.text: qsTr("返回会话列表"); ToolTip.delay: 500
             }
             Avatar { name: ChatStore.title(pch.conv); size: 26 }
             Text {
@@ -91,8 +91,8 @@ Item {
                 MouseArea { id: bMa; anchors.fill: parent; anchors.margins: -5; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: b.clicked() }
                 ToolTip.visible: bMa.containsMouse; ToolTip.text: b.tip; ToolTip.delay: 500
             }
-            Btn { text: "⤢"; tip: "在消息中打开"; onClicked: { var c = pch.conv; WindowManager.module = "chat"; WindowManager.select(c) } }
-            Btn { text: "⧉"; tip: "拆出为独立窗口"; onClicked: WindowManager.detach(pch.conv) }
+            Btn { text: "⤢"; tip: qsTr("在消息中打开"); onClicked: { var c = pch.conv; WindowManager.module = "chat"; WindowManager.select(c) } }
+            Btn { text: "⧉"; tip: qsTr("拆出为独立窗口"); onClicked: WindowManager.detach(pch.conv) }
         }
         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.gridLine }
 
