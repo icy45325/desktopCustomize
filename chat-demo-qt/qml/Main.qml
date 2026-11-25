@@ -73,7 +73,7 @@ ApplicationWindow {
                 anchors.fill: parent
                 spacing: 0
 
-                NavRail { Layout.fillHeight: true; onSettingsRequested: settingsDialog.open() }
+                NavRail { Layout.fillHeight: true; onSettingsRequested: { settingsDialog.page = "general"; settingsDialog.open() } }
 
                 // 模块容器：聊天页常驻（保留会话视图状态）；日历页首次进入时创建，之后常驻
                 Item {
@@ -182,5 +182,5 @@ ApplicationWindow {
     // 设置放在重建的界面树之外：切换语言时对话框保持打开（文字随 retranslate 更新）
     SettingsDialog { id: settingsDialog }
     Shortcut { sequences: [StandardKey.Preferences, "Ctrl+,"]; onActivated: settingsDialog.opened ? settingsDialog.close() : settingsDialog.open() }
-    Connections { target: WindowManager; function onSettingsRequested() { settingsDialog.open() } }
+    Connections { target: WindowManager; function onSettingsRequested(page) { settingsDialog.page = page || "general"; settingsDialog.open() } }
 }

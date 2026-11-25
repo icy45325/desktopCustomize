@@ -101,6 +101,20 @@ T = {
  '每 %1 天': 'Every %1 days', '每个工作日': 'Every weekday', '每 %1 周': 'Every %1 weeks', '每周': 'Weekly', '每 %1 个月': 'Every %1 months', '每月': 'Monthly',
  '（第 %1 个%2）': ' on the %1th %2', '（最后一个%1）': ' on the last %1', '（%1 日）': ' on day %1', '（最后一天）': ' on the last day',
  '每 %1 年': 'Every %1 years', '每年': 'Yearly', '自定义重复': 'Custom recurrence', '，共 %n 次': (', %n time', ', %n times'), '，至 %1': ', until %1',
+ '移除': 'Remove', '其他日历': 'OTHER CALENDARS', '添加节假日 / 伊斯兰节日日历': 'Add holiday / Islamic calendars',
+ '点 ＋ 添加阿联酋公共假日、伊斯兰节日': 'Click ＋ to add UAE public holidays or Islamic holidays', '显示周末': 'Show weekends',
+ '伊斯兰节日按回历推算，实际日期以阿联酋官方根据新月观测公布的为准（可在设置里调整 ±2 天）。':
+   'Islamic holidays are estimated from the Hijri calendar; actual dates follow the official UAE announcement based on moon sighting (adjust ±2 days in Settings).',
+ '阿联酋联邦公共假日。': 'UAE federal public holiday.', '元旦': 'New Year’s Day', '纪念日': 'Commemoration Day', '国庆节': 'National Day',
+ '伊斯兰新年': 'Islamic New Year', '先知诞辰': 'Prophet Muhammad’s Birthday', '开斋节': 'Eid al-Fitr', '阿拉法特日': 'Arafat Day', '宰牲节': 'Eid al-Adha',
+ '按回历推算，实际日期取决于新月观测（可在设置里调整 ±2 天）。': 'Estimated from the Hijri calendar; actual dates depend on moon sighting (adjust ±2 days in Settings).',
+ '阿舒拉日': 'Ashura', '登霄节': 'Isra and Miʿraj', '拜拉特夜': 'Mid-Shaʿban', '斋月开始': 'Ramadan begins', '盖德尔夜': 'Laylat al-Qadr',
+ '阿联酋公共假日': 'UAE public holidays', '伊斯兰节日': 'Islamic holidays', ' · 内置日历（只读）': ' · built-in (read-only)',
+ '通用': 'General', '视图': 'VIEW', '周末': 'Weekend', '周六、周日': 'Sat & Sun', '周五、周六': 'Fri & Sat', '节假日与伊斯兰历': 'HOLIDAYS & HIJRI CALENDAR',
+ '伊斯兰节日（斋月、开斋节、宰牲节等）': 'Islamic holidays (Ramadan, Eid al-Fitr, Eid al-Adha…)', '显示回历（伊斯兰历）日期': 'Show Hijri (Islamic) dates',
+ '回历日期调整': 'Hijri date adjustment',
+ '回历日期按算法推算，与官方根据新月观测公布的日期可能相差 1～2 天，可用上面的调整对齐。今天：%1':
+   'Hijri dates are calculated and may differ by 1–2 days from official moon-sighting announcements; use the adjustment above to align. Today: %1',
 }
 # 同一个中文在不同界面里意思不同：按 (上下文, 源文本) 覆盖
 OVERRIDE = {

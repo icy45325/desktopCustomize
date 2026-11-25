@@ -31,6 +31,15 @@ class CalendarStore : public QObject
     Q_PROPERTY(bool showCompleted READ showCompleted WRITE setShowCompleted NOTIFY showCompletedChanged)
     Q_PROPERTY(bool weekStartsMonday READ weekStartsMonday WRITE setWeekStartsMonday NOTIFY weekStartsMondayChanged)
     Q_PROPERTY(int openTodoCount READ openTodoCount NOTIFY changed)
+    /// 周 / 月视图是否显示周末（默认不显示）；周末是哪两天："sat-sun"（阿联酋等）| "fri-sat"（沙特、卡塔尔、科威特等）
+    Q_PROPERTY(bool showWeekends READ showWeekends WRITE setShowWeekends NOTIFY showWeekendsChanged)
+    Q_PROPERTY(QString weekendDays READ weekendDays WRITE setWeekendDays NOTIFY weekendDaysChanged)
+    /// 内置日历：阿联酋公共假日、伊斯兰节日（生成在内存里，只读，出现在侧栏「其他日历」）
+    Q_PROPERTY(bool showUaeHolidays READ showUaeHolidays WRITE setShowUaeHolidays NOTIFY holidaysChanged)
+    Q_PROPERTY(bool showIslamicHolidays READ showIslamicHolidays WRITE setShowIslamicHolidays NOTIFY holidaysChanged)
+    /// 在日 / 周 / 月视图显示回历日期；hijriAdjust 为 -2～+2 天的校正（影响回历显示和伊斯兰节日日期）
+    Q_PROPERTY(bool showHijri READ showHijri WRITE setShowHijri NOTIFY hijriChanged)
+    Q_PROPERTY(int hijriAdjust READ hijriAdjust WRITE setHijriAdjust NOTIFY hijriChanged)
 public:
     static CalendarStore *instance();
     static CalendarStore *create(QQmlEngine *, QJSEngine *);
@@ -46,6 +55,23 @@ public:
     bool weekStartsMonday() const { return m_weekStartsMonday; }
     void setWeekStartsMonday(bool v);
     int openTodoCount() const;
+    bool showWeekends() const { return m_showWeekends; }
+    void setShowWeekends(bool v);
+    QString weekendDays() const { return m_weekendDays; }
+    void setWeekendDays(const QString &v);
+    bool showUaeHolidays() const { return m_showUae; }
+    void setShowUaeHolidays(bool v);
+    bool showIslamicHolidays() const { return m_showIslamic; }
+    void setShowIslamicHolidays(bool v);
+    bool showHijri() const { return m_showHijri; }
+    void setShowHijri(bool v);
+    int hijriAdjust() const { return m_hijriAdjust; }
+    void setHijriAdjust(int v);
+
+    /// 从 fromIso 起连续 days 天的回历日期：[{y, m, d, label（格子里的短文字）, full}]
+    Q_INVOKABLE QVariantList hijriRange(const QString &fromIso, int days) const;
+    /// 完整回历日期文字：「回历 1448 年 主马达·阿色尼月 14 日」/「14 Jumada II 1448 AH」
+    Q_INVOKABLE QString hijriText(const QString &iso) const;
 
     // MARK: 查询
     /// [fromIso, toIso) 内可见日历的所有事件实例，按「全天优先、开始时间」排序。
@@ -111,6 +137,10 @@ signals:
     void showTodosChanged();
     void showCompletedChanged();
     void weekStartsMondayChanged();
+    void showWeekendsChanged();
+    void weekendDaysChanged();
+    void holidaysChanged();
+    void hijriChanged();
     void syncFinished(const QString &id, bool ok, const QString &error);
     void notificationRequested(const QString &key, const QString &title, const QString &body);
     void revealRequested(const QString &dateIso);
@@ -141,6 +171,9 @@ private:
     void loadFromIcs(Cal &c, const QByteArray &data, bool adoptMeta);
     void fetched(const QString &id, const QByteArray &data, const QString &error);
 
+    void rebuildBuiltins();        // 按设置重新生成内置日历（节假日开关 / 回历校正 / 语言变化时）
+    QList<ical::Event> uaeHolidays(int fromYear, int toYear) const;
+    QList<ical::Event> islamicHolidays(int fromYear, int toYear, bool skipUaeOverlap) const;
     void load();
     void seed();
     void saveMeta();
@@ -158,4 +191,11 @@ private:
     bool m_showTodos = true;
     bool m_showCompleted = false;
     bool m_weekStartsMonday = true;
+    bool m_showWeekends = false;
+    QString m_weekendDays = QStringLiteral("sat-sun");
+    bool m_showUae = false;
+    bool m_showIslamic = false;
+    bool m_showHijri = false;
+    int m_hijriAdjust = 0;
+    QHash<QString, bool> m_builtinVisible;   // 内置日历在侧栏里的勾选状态
 };

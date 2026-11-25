@@ -29,7 +29,17 @@ function addMonths(d, n) {
 function sameDay(a, b) { return a && b && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate() }
 function sameMonth(a, b) { return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() }
 function isToday(d) { return sameDay(d, new Date()) }
-function isWeekend(d) { return d.getDay() === 0 || d.getDay() === 6 }
+// 周末是哪两天："sat-sun"（阿联酋自 2022 年起、多数国家）| "fri-sat"（沙特、卡塔尔、科威特等）
+function isWeekend(d, wk) { var w = d.getDay(); return wk === "fri-sat" ? (w === 5 || w === 6) : (w === 0 || w === 6) }
+// 一周 7 列里要显示的列（相对周起始日的偏移 0～6）；隐藏周末时去掉周末那两列
+function weekColumns(mondayFirst, showWeekends, wk) {
+    var r = []
+    for (var i = 0; i < 7; ++i) {
+        var dow = (i + (mondayFirst ? 1 : 0)) % 7
+        if (showWeekends || !isWeekend(new Date(2026, 1, 1 + dow), wk)) r.push(i)   // 2026-02-01 是周日，借它算星期几
+    }
+    return r
+}
 
 function startOfWeek(d, mondayFirst) {
     var off = mondayFirst ? (d.getDay() + 6) % 7 : d.getDay()

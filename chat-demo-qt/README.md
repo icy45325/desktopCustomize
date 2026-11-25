@@ -50,7 +50,14 @@ cmake --build build -j
 - **语言**：简体中文 / English。首次启动按系统语言选择。切换时整个界面重建，草稿、光标、选中的会话、日历数据都保留，设置对话框保持打开。
   英文下日期格式、重复规则描述、AI 小助手（回复，以及英文输入如 “design sync tomorrow at 3pm for 30 min”）都随之变化。
   示例数据在首次启动时按当时的语言生成；聊天里的模拟消息和内置示例订阅属于「数据」，不翻译。
-- **日历**：每周从周一开始、在日历中显示待办、显示已完成的待办。
+- **日历**（设置的「日历」页）：
+  - **显示周末**（默认关闭）：周 / 月视图只显示工作日，日视图按天翻页时跳过周末；**周末是哪两天**可选「周六、周日」（阿联酋自 2022 年起）或「周五、周六」（沙特、卡塔尔、科威特等）。
+  - **阿联酋公共假日**：元旦、开斋节（3 天）、阿拉法特日、宰牲节（3 天）、伊斯兰新年、先知诞辰、纪念日（12/1）、国庆节（12/2–3）。
+  - **伊斯兰节日**：斋月开始、盖德尔夜、登霄节、拜拉特夜、阿舒拉日，以及（未开阿联酋假日时）开斋节、宰牲节等；两个都开时不重复。
+  - **显示回历日期**：月视图格子右上角、周视图表头、日视图副标题显示伊斯兰历日期；**回历日期调整** −2～+2 天。
+  - 以上两个节假日日历是内置的只读日历，出现在侧栏「其他日历」，可单独勾选显示 / 隐藏、右键移除（= 关掉开关）；系统地区为阿联酋时默认打开。
+  - 伊斯兰历用表格法（tabular Islamic calendar）推算，与官方按新月观测公布的日期通常相差 0～1 天（已用 2025/2026 年已知日期核对），所以伊斯兰节日标注为「推算」，可用调整对齐；阿联酋有时会把假日挪到周五等，以官方公告为准。
+  - 其它：每周从周一开始、在日历中显示待办、显示已完成的待办。
 
 翻译用 Qt 标准流程：源文本是中文（`qsTr()` / `tr()`），英文译文在 `i18n/ChatDemo_en.ts`，编译时由 lrelease 生成 `.qm` 嵌入程序。改了界面文字后：
 
@@ -63,6 +70,10 @@ python3 i18n/fill_en.py i18n/ChatDemo_en.ts   # 列出缺译文的条目，补�
 | 设置（中文） | Settings (English) | English · Calendar | English · Dark + Assistant |
 |---|---|---|---|
 | ![](docs/shot.settings.zh.light.png) | ![](docs/shot.settings.en.light.png) | ![](docs/shot.en.calendar.week.light.png) | ![](docs/shot.en.calendar.week.dark.png) |
+
+| 设置 · 日历 | 月视图：隐藏周末 + 阿联酋假日 + 回历 | 周视图：工作日 + 回历 |
+|---|---|---|
+| ![](docs/shot.settings.calendar.light.png) | ![](docs/shot.calendar.month-holidays.light.png) | ![](docs/shot.calendar.week-hijri.light.png) |
 
 ## 动态面板（全局）
 
@@ -108,6 +119,7 @@ AI 小助手目前是**本地规则引擎**（中文日期 / 时间 / 时长解�
 | `qml/CalSidebar.qml` | 左侧栏（创建、迷你月历、日历列表、选项） |
 | `qml/SidePanel.qml` `PanelWindow.qml` | 全局动态面板与它的独立窗口；`TodoPanel` `MeetingPanel` `PanelCalendar` `PanelChat` `AssistantPanel` 是各标签 |
 | `src/assistant.*` | AI 小助手：中英文日期 / 时间解析、意图识别、回复与撤销 |
+| `src/hijri.h` | 回历 ↔ 公历换算（表格法，含 ±2 天调整） |
 | `src/appsettings.*` `qml/SettingsDialog.qml` | 设置：主题模式（跟随系统）、界面语言（QTranslator + 界面重建）；`i18n/` 为翻译文件 |
 | `qml/EventEditor.qml` `EventDetail.qml` `SubscribeDialog.qml` | 新建/编辑（活动 / 待办）、详情气泡、订阅对话框 |
 | `qml/CalUtil.js` `MiniMonth.qml` `EventChip.qml` … | 日期工具与通用小部件 |
@@ -143,7 +155,7 @@ export QT_QPA_PLATFORM=offscreen CHATDEMO_DATA_DIR=$(mktemp -d)
 ./build/bin/ChatDemo --selftest            # phase 1：草稿/光标迁移、输入法延迟、单实例、租约、未读+通知、合并、关闭
 ./build/bin/ChatDemo --selftest --phase2   # phase 2：重启后恢复独立窗口与草稿
 ./build/bin/ChatDemo --selftest --perf     # 性能：切模块 / 切视图 / 数据变化耗时
-./build/bin/ChatDemo --selftest --calendar # 日历：iCalendar 解析/往返、RRULE、增删改、订阅、提醒、五种视图、AI 小助手、动态面板、主题与语言切换（共 91 项）
+./build/bin/ChatDemo --selftest --calendar # 日历：iCalendar 解析/往返、RRULE、增删改、订阅、提醒、五种视图、AI 小助手、动态面板、主题与语言切换、周末 / 节假日 / 回历（共 110 项）
 ```
 
 已自动覆盖的验收用例：1、3、4、5、窗口恢复后自动滚到「新消息」分隔线（用 `setComposing` 模拟组合态）、6/9（最小化窗口的未读与通知）、10、12。

@@ -101,7 +101,7 @@ Popup {
         InfoRow { icon: "⇗"; text: pop.item && pop.item.url ? pop.item.url : "" }
         InfoRow {
             icon: "▣"
-            text: pop.item ? pop.item.calendarName + (pop.item.readOnly ? qsTr(" · 订阅日历（只读）") : "") : ""
+            text: pop.item ? pop.item.calendarName + (!pop.item.readOnly ? "" : pop.item.calendarKind === "builtin" ? qsTr(" · 内置日历（只读）") : qsTr(" · 订阅日历（只读）")) : ""
         }
 
         // 操作

@@ -498,6 +498,26 @@ Read-only · right-click to refresh / edit</translation>
             <source>删除</source>
             <translation>Delete</translation>
         </message>
+        <message>
+            <source>移除</source>
+            <translation>Remove</translation>
+        </message>
+        <message>
+            <source>其他日历</source>
+            <translation>OTHER CALENDARS</translation>
+        </message>
+        <message>
+            <source>添加节假日 / 伊斯兰节日日历</source>
+            <translation>Add holiday / Islamic calendars</translation>
+        </message>
+        <message>
+            <source>点 ＋ 添加阿联酋公共假日、伊斯兰节日</source>
+            <translation>Click ＋ to add UAE public holidays or Islamic holidays</translation>
+        </message>
+        <message>
+            <source>显示周末</source>
+            <translation>Show weekends</translation>
+        </message>
     </context>
     <context>
         <name>CalendarStore</name>
@@ -655,6 +675,78 @@ Read-only · right-click to refresh / edit</translation>
         <message>
             <source>团队公共日历（示例订阅）</source>
             <translation>Team calendar (sample subscription)</translation>
+        </message>
+        <message>
+            <source>伊斯兰节日按回历推算，实际日期以阿联酋官方根据新月观测公布的为准（可在设置里调整 ±2 天）。</source>
+            <translation>Islamic holidays are estimated from the Hijri calendar; actual dates follow the official UAE announcement based on moon sighting (adjust ±2 days in Settings).</translation>
+        </message>
+        <message>
+            <source>阿联酋联邦公共假日。</source>
+            <translation>UAE federal public holiday.</translation>
+        </message>
+        <message>
+            <source>元旦</source>
+            <translation>New Year’s Day</translation>
+        </message>
+        <message>
+            <source>纪念日</source>
+            <translation>Commemoration Day</translation>
+        </message>
+        <message>
+            <source>国庆节</source>
+            <translation>National Day</translation>
+        </message>
+        <message>
+            <source>伊斯兰新年</source>
+            <translation>Islamic New Year</translation>
+        </message>
+        <message>
+            <source>先知诞辰</source>
+            <translation>Prophet Muhammad’s Birthday</translation>
+        </message>
+        <message>
+            <source>开斋节</source>
+            <translation>Eid al-Fitr</translation>
+        </message>
+        <message>
+            <source>阿拉法特日</source>
+            <translation>Arafat Day</translation>
+        </message>
+        <message>
+            <source>宰牲节</source>
+            <translation>Eid al-Adha</translation>
+        </message>
+        <message>
+            <source>按回历推算，实际日期取决于新月观测（可在设置里调整 ±2 天）。</source>
+            <translation>Estimated from the Hijri calendar; actual dates depend on moon sighting (adjust ±2 days in Settings).</translation>
+        </message>
+        <message>
+            <source>阿舒拉日</source>
+            <translation>Ashura</translation>
+        </message>
+        <message>
+            <source>登霄节</source>
+            <translation>Isra and Miʿraj</translation>
+        </message>
+        <message>
+            <source>拜拉特夜</source>
+            <translation>Mid-Shaʿban</translation>
+        </message>
+        <message>
+            <source>斋月开始</source>
+            <translation>Ramadan begins</translation>
+        </message>
+        <message>
+            <source>盖德尔夜</source>
+            <translation>Laylat al-Qadr</translation>
+        </message>
+        <message>
+            <source>阿联酋公共假日</source>
+            <translation>UAE public holidays</translation>
+        </message>
+        <message>
+            <source>伊斯兰节日</source>
+            <translation>Islamic holidays</translation>
         </message>
     </context>
     <context>
@@ -875,6 +967,10 @@ Read-only · right-click to refresh / edit</translation>
         <message>
             <source>所有</source>
             <translation>All events</translation>
+        </message>
+        <message>
+            <source> · 内置日历（只读）</source>
+            <translation> · built-in (read-only)</translation>
         </message>
     </context>
     <context>
@@ -1210,6 +1306,54 @@ Read-only · right-click to refresh / edit</translation>
         <message>
             <source>快捷键：⌘, 打开设置 · ⌘⇧D 切换浅色 / 深色</source>
             <translation>Shortcuts: ⌘, settings · ⌘⇧D toggle light / dark</translation>
+        </message>
+        <message>
+            <source>通用</source>
+            <translation>General</translation>
+        </message>
+        <message>
+            <source>视图</source>
+            <translation>VIEW</translation>
+        </message>
+        <message>
+            <source>显示周末</source>
+            <translation>Show weekends</translation>
+        </message>
+        <message>
+            <source>周末</source>
+            <translation>Weekend</translation>
+        </message>
+        <message>
+            <source>周六、周日</source>
+            <translation>Sat &amp; Sun</translation>
+        </message>
+        <message>
+            <source>周五、周六</source>
+            <translation>Fri &amp; Sat</translation>
+        </message>
+        <message>
+            <source>节假日与伊斯兰历</source>
+            <translation>HOLIDAYS &amp; HIJRI CALENDAR</translation>
+        </message>
+        <message>
+            <source>阿联酋公共假日</source>
+            <translation>UAE public holidays</translation>
+        </message>
+        <message>
+            <source>伊斯兰节日（斋月、开斋节、宰牲节等）</source>
+            <translation>Islamic holidays (Ramadan, Eid al-Fitr, Eid al-Adha…)</translation>
+        </message>
+        <message>
+            <source>显示回历（伊斯兰历）日期</source>
+            <translation>Show Hijri (Islamic) dates</translation>
+        </message>
+        <message>
+            <source>回历日期调整</source>
+            <translation>Hijri date adjustment</translation>
+        </message>
+        <message>
+            <source>回历日期按算法推算，与官方根据新月观测公布的日期可能相差 1～2 天，可用上面的调整对齐。今天：%1</source>
+            <translation>Hijri dates are calculated and may differ by 1–2 days from official moon-sighting announcements; use the adjustment above to align. Today: %1</translation>
         </message>
     </context>
     <context>

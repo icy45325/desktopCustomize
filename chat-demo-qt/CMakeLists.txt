@@ -26,6 +26,7 @@ qt_add_qml_module(ChatDemo
         src/selftest.h src/selftest.cpp
         src/ical.h src/ical.cpp
         src/calendarstore.h src/calendarstore.cpp
+        src/hijri.h
         src/assistant.h src/assistant.cpp
         src/appsettings.h src/appsettings.cpp
     QML_FILES

@@ -16,29 +16,37 @@ Item {
     property var startDate: Cal.today()
     readonly property int gutter: 56
     readonly property real hourH: 48
-    readonly property real dayW: (width - gutter - 10) / days
+    readonly property real dayW: (width - gutter - 10) / Math.max(1, dayList.length)
     property real nowMin: Cal.minutesOfDay(new Date())
 
-    // 用字符串做 key：startDate 每次重算都是新的 Date 对象，直接依赖它会让整个网格无谓重建
-    readonly property string rangeKey: Cal.iso(startDate) + "/" + days
-    readonly property var dayList: { var p = rangeKey.split("/"), s = Cal.parseIso(p[0]), r = []; for (var i = 0; i < +p[1]; ++i) r.push(Cal.addDays(s, i)); return r }
+    // 用字符串做 key：startDate 每次重算都是新的 Date 对象，直接依赖它会让整个网格无谓重建。
+    // key = 起始日 / 天数 / 显示哪几列（隐藏周末时去掉）/ 回历设置
+    readonly property string colsKey: days === 1 ? "0" : Cal.weekColumns(CalendarStore.weekStartsMonday, CalendarStore.showWeekends, CalendarStore.weekendDays).join(",")
+    readonly property string rangeKey: Cal.iso(startDate) + "/" + days + "/" + colsKey + "/" + (CalendarStore.showHijri ? CalendarStore.hijriAdjust : "x")
+    function daysFromKey(key) { var p = key.split("/"), s = Cal.parseIso(p[0]); return p[2].split(",").map(function (o) { return Cal.addDays(s, +o) }) }
+    readonly property var dayList: daysFromKey(rangeKey)
+    property var hijri: []             // 与 dayList 对齐的回历日期（关闭时为空）
     property var items: []
     property var topLists: []          // 每天的全天栏条目（全天 / 跨天事件 + 待办）
     property int maxTop: 0
     function reload() {
         var start = Cal.parseIso(rangeKey.split("/")[0])   // 不依赖 dayList：初始化顺序里它可能还没算好
+        var shown = daysFromKey(rangeKey)
         var from = Cal.iso(start), to = Cal.iso(Cal.addDays(start, days))
         var r = CalendarStore.occurrences(from, to)
         if (CalendarStore.showTodos) r = r.concat(CalendarStore.todosInRange(from, to))
-        var lists = [], m = 0
-        for (var d = 0; d < days; ++d) {
-            var iso = Cal.iso(Cal.addDays(start, d)), l = []
+        var lists = [], m = 0, hj = []
+        var hAll = CalendarStore.showHijri ? CalendarStore.hijriRange(from, days) : []
+        for (var d = 0; d < shown.length; ++d) {
+            var iso = Cal.iso(shown[d]), l = []
+            if (hAll.length) hj.push(hAll[Math.round((shown[d] - start) / Cal.DAY_MS)])
             for (var i = 0; i < r.length; ++i)
                 if ((r[i].type === "todo" || Cal.isBanner(r[i])) && Cal.coversDay(r[i], iso)) l.push(r[i])
             lists.push(l)
             m = Math.max(m, l.length)
         }
         items = r
+        hijri = hj
         topLists = lists
         maxTop = m
         loadedKey = rangeKey
@@ -65,7 +73,7 @@ Item {
         // MARK: 日期头
         Row {
             Layout.fillWidth: true
-            Layout.preferredHeight: 54
+            Layout.preferredHeight: tg.hijri.length ? 68 : 54
             Item {
                 width: tg.gutter; height: parent.height
                 Text {
@@ -79,8 +87,9 @@ Item {
                 model: tg.dayList
                 Item {
                     required property var modelData
+                    required property int index
                     readonly property bool today: Cal.isToday(modelData)
-                    width: tg.dayW; height: 54
+                    width: tg.dayW; height: parent.height
                     Column {
                         anchors.centerIn: parent
                         spacing: 2
@@ -98,9 +107,18 @@ Item {
                                 anchors.centerIn: parent
                                 text: modelData.getDate()
                                 font.pixelSize: 16; font.bold: parent.parent.parent.today
-                                color: parent.parent.parent.today ? Theme.accentText : (Cal.isWeekend(modelData) ? Theme.textSecondary : Theme.text)
+                                color: parent.parent.parent.today ? Theme.accentText : (Cal.isWeekend(modelData, CalendarStore.weekendDays) ? Theme.textSecondary : Theme.text)
                             }
                             MouseArea { id: hdrMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: tg.calendarView.showDay(modelData) }
+                        }
+                        // 回历日期（设置里开启）
+                        Text {
+                            visible: tg.hijri.length > 0
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            readonly property var h: tg.hijri[parent.parent.index]
+                            text: h ? h.d + " " + h.monthShort : ""   // 周视图表头空间够：每天都带月份
+                            font.pixelSize: 10
+                            color: h && h.first ? Theme.accent : Theme.textTertiary
                         }
                     }
                 }
@@ -217,7 +235,7 @@ Item {
                         z: dragging ? 5 : 1
                         property bool dragging: false
 
-                        Rectangle { anchors.fill: parent; visible: Cal.isWeekend(col.modelData) && tg.days > 1; color: Theme.weekendBg }
+                        Rectangle { anchors.fill: parent; visible: Cal.isWeekend(col.modelData, CalendarStore.weekendDays) && tg.days > 1; color: Theme.weekendBg }
                         Rectangle { width: 1; height: parent.height; color: Theme.gridLine }
 
                         // 拖选新建
@@ -334,7 +352,9 @@ Item {
                                     onReleased: (m) => {
                                         col.dragging = false
                                         if (moved && block.editable) {
-                                            var dDays = Math.round(shift.x / tg.dayW)
+                                            // 列 ≠ 天（隐藏周末时周五右边一列是下周一）：按目标列的实际日期算相差几天
+                                            var target = Math.max(0, Math.min(tg.dayList.length - 1, col.index + Math.round(shift.x / tg.dayW)))
+                                            var dDays = Math.round((tg.dayList[target] - tg.dayList[col.index]) / Cal.DAY_MS)
                                             var dMin = Math.round(shift.y / (tg.hourH / 4)) * 15
                                             shift.x = 0; shift.y = 0
                                             if (dDays !== 0 || dMin !== 0) {

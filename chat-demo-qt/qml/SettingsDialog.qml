@@ -139,43 +139,136 @@ Popup {
         MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: tg.toggled() }
     }
 
+    property string page: "general"         // general | calendar
+
+    // 分段选择（周末是哪两天、回历校正）
+    component Segmented: Rectangle {
+        id: sg
+        property var options: []             // [{v, t}]
+        property var value
+        signal picked(var v)
+        implicitHeight: 28
+        implicitWidth: segRow.implicitWidth + 6
+        radius: 14
+        color: Theme.surface
+        Row {
+            id: segRow
+            anchors.centerIn: parent
+            spacing: 2
+            Repeater {
+                model: sg.options
+                Rectangle {
+                    required property var modelData
+                    readonly property bool on: sg.value === modelData.v
+                    objectName: "seg-" + modelData.v
+                    width: Math.max(34, st.implicitWidth + 16); height: 22; radius: 11
+                    color: on ? Theme.card : (sma.containsMouse ? Theme.hover : "transparent")
+                    border.width: on && Theme.dark ? 1 : 0; border.color: Theme.accentGlow
+                    Text { id: st; anchors.centerIn: parent; text: modelData.t; font.pixelSize: 12; font.bold: parent.on; color: parent.on ? Theme.accent : Theme.textSecondary }
+                    MouseArea { id: sma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: sg.picked(modelData.v) }
+                }
+            }
+        }
+    }
+    component OptionLine: RowLayout {
+        property string text
+        default property alias control: holder.data
+        Layout.fillWidth: true
+        implicitHeight: 30
+        Text { text: parent.text; font.pixelSize: 13; color: Theme.text; Layout.fillWidth: true }
+        Item { id: holder; implicitWidth: childrenRect.width; implicitHeight: childrenRect.height }
+    }
+
     contentItem: ColumnLayout {
         spacing: 12
 
         RowLayout {
             Layout.fillWidth: true
-            Text { text: qsTr("设置"); font.pixelSize: 18; font.bold: true; color: Theme.text; Layout.fillWidth: true }
+            spacing: 14
+            Text { text: qsTr("设置"); font.pixelSize: 18; font.bold: true; color: Theme.text }
+            // 标签页：通用 / 日历
+            Segmented {
+                objectName: "settingsTabs"
+                options: [{ v: "general", t: qsTr("通用") }, { v: "calendar", t: qsTr("日历") }]
+                value: dlg.page
+                onPicked: (v) => dlg.page = v
+            }
+            Item { Layout.fillWidth: true }
             Text {
                 text: "✕"; font.pixelSize: 14; color: closeMa.containsMouse ? Theme.text : Theme.textTertiary
                 MouseArea { id: closeMa; anchors.fill: parent; anchors.margins: -6; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: dlg.close() }
             }
         }
 
-        SectionTitle { text: qsTr("外观") }
-        RowLayout {
+        // MARK: 通用
+        ColumnLayout {
+            visible: dlg.page === "general"
             Layout.fillWidth: true
-            spacing: 10
-            ThemeCard { mode: "light"; label: qsTr("浅色") }
-            ThemeCard { mode: "dark"; label: qsTr("深色") }
-            ThemeCard { mode: "system"; label: qsTr("跟随系统") }
-        }
-        Text {
-            visible: Settings.themeMode === "system"
-            text: qsTr("系统当前为%1模式，切换系统外观时会自动跟随。").arg(Settings.systemDark ? qsTr("深色") : qsTr("浅色"))
-            font.pixelSize: 11
-            color: Theme.textSecondary
-            Layout.fillWidth: true
-            wrapMode: Text.Wrap
+            spacing: 12
+
+            SectionTitle { text: qsTr("外观") }
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 10
+                ThemeCard { mode: "light"; label: qsTr("浅色") }
+                ThemeCard { mode: "dark"; label: qsTr("深色") }
+                ThemeCard { mode: "system"; label: qsTr("跟随系统") }
+            }
+            Text {
+                visible: Settings.themeMode === "system"
+                text: qsTr("系统当前为%1模式，切换系统外观时会自动跟随。").arg(Settings.systemDark ? qsTr("深色") : qsTr("浅色"))
+                font.pixelSize: 11
+                color: Theme.textSecondary
+                Layout.fillWidth: true
+                wrapMode: Text.Wrap
+            }
+
+            SectionTitle { text: qsTr("语言") }
+            LangRow { lang: "zh"; name: "简体中文"; hint: "Chinese (Simplified)" }
+            LangRow { lang: "en"; name: "English"; hint: "英语" }
         }
 
-        SectionTitle { text: qsTr("语言") }
-        LangRow { lang: "zh"; name: "简体中文"; hint: "Chinese (Simplified)" }
-        LangRow { lang: "en"; name: "English"; hint: "英语" }
+        // MARK: 日历
+        ColumnLayout {
+            visible: dlg.page === "calendar"
+            Layout.fillWidth: true
+            spacing: 8
 
-        SectionTitle { text: qsTr("日历") }
-        Toggle { text: qsTr("每周从周一开始"); checked: CalendarStore.weekStartsMonday; onToggled: CalendarStore.weekStartsMonday = !CalendarStore.weekStartsMonday }
-        Toggle { text: qsTr("在日历中显示待办"); checked: CalendarStore.showTodos; onToggled: CalendarStore.showTodos = !CalendarStore.showTodos }
-        Toggle { text: qsTr("显示已完成的待办"); checked: CalendarStore.showCompleted; onToggled: CalendarStore.showCompleted = !CalendarStore.showCompleted }
+            SectionTitle { text: qsTr("视图") }
+            Toggle { objectName: "toggleWeekends"; text: qsTr("显示周末"); checked: CalendarStore.showWeekends; onToggled: CalendarStore.showWeekends = !CalendarStore.showWeekends }
+            OptionLine {
+                text: qsTr("周末")
+                Segmented {
+                    options: [{ v: "sat-sun", t: qsTr("周六、周日") }, { v: "fri-sat", t: qsTr("周五、周六") }]
+                    value: CalendarStore.weekendDays
+                    onPicked: (v) => CalendarStore.weekendDays = v
+                }
+            }
+            Toggle { text: qsTr("每周从周一开始"); checked: CalendarStore.weekStartsMonday; onToggled: CalendarStore.weekStartsMonday = !CalendarStore.weekStartsMonday }
+            Toggle { text: qsTr("在日历中显示待办"); checked: CalendarStore.showTodos; onToggled: CalendarStore.showTodos = !CalendarStore.showTodos }
+            Toggle { text: qsTr("显示已完成的待办"); checked: CalendarStore.showCompleted; onToggled: CalendarStore.showCompleted = !CalendarStore.showCompleted }
+
+            SectionTitle { text: qsTr("节假日与伊斯兰历"); Layout.topMargin: 10 }
+            Toggle { objectName: "toggleUae"; text: qsTr("阿联酋公共假日"); checked: CalendarStore.showUaeHolidays; onToggled: CalendarStore.showUaeHolidays = !CalendarStore.showUaeHolidays }
+            Toggle { objectName: "toggleIslamic"; text: qsTr("伊斯兰节日（斋月、开斋节、宰牲节等）"); checked: CalendarStore.showIslamicHolidays; onToggled: CalendarStore.showIslamicHolidays = !CalendarStore.showIslamicHolidays }
+            Toggle { objectName: "toggleHijri"; text: qsTr("显示回历（伊斯兰历）日期"); checked: CalendarStore.showHijri; onToggled: CalendarStore.showHijri = !CalendarStore.showHijri }
+            OptionLine {
+                text: qsTr("回历日期调整")
+                Segmented {
+                    options: [{ v: -2, t: "−2" }, { v: -1, t: "−1" }, { v: 0, t: "0" }, { v: 1, t: "+1" }, { v: 2, t: "+2" }]
+                    value: CalendarStore.hijriAdjust
+                    onPicked: (v) => CalendarStore.hijriAdjust = v
+                }
+            }
+            Text {
+                Layout.fillWidth: true
+                wrapMode: Text.Wrap
+                text: qsTr("回历日期按算法推算，与官方根据新月观测公布的日期可能相差 1～2 天，可用上面的调整对齐。今天：%1")
+                          .arg((CalendarStore.hijriAdjust, CalendarStore.hijriText(Qt.formatDate(new Date(), "yyyy-MM-dd"))))   // 读 hijriAdjust：调整后立即刷新
+                font.pixelSize: 11
+                color: Theme.textSecondary
+            }
+        }
 
         Text {
             Layout.topMargin: 4

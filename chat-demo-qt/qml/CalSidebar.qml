@@ -154,6 +154,7 @@ Item {
                             onTriggered: { var p = CalendarStore.exportCalendar(row.cal.id); toast.show(p !== "" ? qsTr("已导出到 %1").arg(p) : qsTr("导出失败")) } }
                         Menu {
                             title: qsTr("颜色")
+                            enabled: row.cal.kind !== "builtin"
                             Repeater {
                                 model: CalendarStore.palette()
                                 MenuItem {
@@ -169,7 +170,14 @@ Item {
                             }
                         }
                         MenuSeparator {}
-                        MenuItem { text: row.cal.kind === "subscription" ? qsTr("取消订阅") : qsTr("删除日历"); onTriggered: { confirmRemove.calId = row.cal.id; confirmRemove.calName = row.cal.name; confirmRemove.open() } }
+                        MenuItem {
+                            text: row.cal.kind === "builtin" ? qsTr("移除") : row.cal.kind === "subscription" ? qsTr("取消订阅") : qsTr("删除日历")
+                            // 内置日历：移除 = 关掉设置里对应的开关，随时可再打开，无需确认
+                            onTriggered: {
+                                if (row.cal.kind === "builtin") { CalendarStore.removeCalendar(row.cal.id); return }
+                                confirmRemove.calId = row.cal.id; confirmRemove.calName = row.cal.name; confirmRemove.open()
+                            }
+                        }
                     }
                 }
 
@@ -190,6 +198,21 @@ Item {
                     font.pixelSize: 11; color: Theme.textTertiary
                     wrapMode: Text.Wrap
                     Layout.fillWidth: true
+                }
+
+                // 其他日历（同 Google「Other calendars」）：内置的阿联酋公共假日 / 伊斯兰节日，＋ 打开设置里的日历页
+                SectionHeader { text: qsTr("其他日历"); tip: qsTr("添加节假日 / 伊斯兰节日日历"); onAdd: WindowManager.openSettings("calendar") }
+                Repeater {
+                    model: CalendarStore.calendars.filter(function (c) { return c.kind === "builtin" })
+                    CalRow { required property var modelData; cal: modelData }
+                }
+                Text {
+                    visible: !CalendarStore.showUaeHolidays && !CalendarStore.showIslamicHolidays
+                    Layout.leftMargin: 6
+                    Layout.fillWidth: true
+                    text: qsTr("点 ＋ 添加阿联酋公共假日、伊斯兰节日")
+                    font.pixelSize: 11; color: Theme.textTertiary
+                    wrapMode: Text.Wrap
                 }
 
                 SectionHeader { text: qsTr("选项"); tip: ""; Layout.topMargin: 14 }
@@ -213,6 +236,7 @@ Item {
                     }
                     MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: opt.toggled() }
                 }
+                OptionRow { text: qsTr("显示周末"); checked: CalendarStore.showWeekends; onToggled: CalendarStore.showWeekends = !CalendarStore.showWeekends }
                 OptionRow { text: qsTr("在日历中显示待办"); checked: CalendarStore.showTodos; onToggled: CalendarStore.showTodos = !CalendarStore.showTodos }
                 OptionRow { text: qsTr("显示已完成的待办"); checked: CalendarStore.showCompleted; onToggled: CalendarStore.showCompleted = !CalendarStore.showCompleted }
                 OptionRow { text: qsTr("每周从周一开始"); checked: CalendarStore.weekStartsMonday; onToggled: CalendarStore.weekStartsMonday = !CalendarStore.weekStartsMonday }

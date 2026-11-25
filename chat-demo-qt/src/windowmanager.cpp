@@ -223,10 +223,10 @@ void WindowManager::closePanelConv()
     saveLayout();
 }
 
-void WindowManager::openSettings()
+void WindowManager::openSettings(const QString &page)
 {
     raiseWindow(m_mainWindow);
-    emit settingsRequested();
+    emit settingsRequested(page);
 }
 
 void WindowManager::focusCalendar()

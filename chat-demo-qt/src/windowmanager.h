@@ -52,7 +52,7 @@ public:
     /// 面板里点了日历条目 / 「在日历中打开」：切到日历模块并前置主窗口
     Q_INVOKABLE void focusCalendar();
     /// 任意窗口按 ⌘,：前置主窗口并打开设置
-    Q_INVOKABLE void openSettings();
+    Q_INVOKABLE void openSettings(const QString &page = QString());
     QQuickWindow *panelWindow() const { return m_panelWindow; }
 
     QString module() const { return m_module; }
@@ -101,7 +101,7 @@ signals:
     void darkModeChanged();
     void moduleChanged();
     void panelChanged();
-    void settingsRequested();
+    void settingsRequested(const QString &page);
     void mainSelectionChanged();
     void ghostChanged();
     void placementChanged(const QString &convId);

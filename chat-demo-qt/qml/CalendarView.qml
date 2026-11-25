@@ -44,7 +44,11 @@ Item {
     function subtitle() {
         if (searchText !== "") return ""
         if (mode === "week") return qsTr("第 %1 周").arg(Cal.weekNumber(rangeStart)) + " · " + Cal.md(rangeStart) + " – " + Cal.md(Cal.addDays(rangeStart, 6))
-        if (mode === "day") { var r = Cal.relativeDay(anchorDate); return Cal.yearText(anchorDate.getFullYear()) + " · " + Cal.weekdayName(anchorDate) + (r !== "" ? " · " + r : "") }
+        if (mode === "day") {
+            var r = Cal.relativeDay(anchorDate), adj = CalendarStore.hijriAdjust   // 读一下校正值：它变化时副标题重算
+            return Cal.yearText(anchorDate.getFullYear()) + " · " + Cal.weekdayName(anchorDate) + (r !== "" ? " · " + r : "")
+                   + (CalendarStore.showHijri ? " · " + CalendarStore.hijriText(Cal.iso(anchorDate)) : "")
+        }
         if (mode === "agenda") return qsTr("自 %1 起").arg(Cal.ymd(anchorDate))
         return ""
     }
@@ -57,7 +61,13 @@ Item {
     function goToday() { anchorDate = Cal.today() }
     function step(n) {
         switch (mode) {
-        case "day": anchorDate = Cal.addDays(anchorDate, n); break
+        case "day": {
+            // 隐藏周末时，按天翻页跳过周末（同 Google 日历）
+            var d = Cal.addDays(anchorDate, n)
+            for (var i = 0; i < 3 && !CalendarStore.showWeekends && Cal.isWeekend(d, CalendarStore.weekendDays); ++i) d = Cal.addDays(d, n)
+            anchorDate = d
+            break
+        }
         case "week": anchorDate = Cal.addDays(anchorDate, 7 * n); break
         case "month": anchorDate = Cal.addMonths(anchorDate, n); break
         case "year": anchorDate = new Date(anchorDate.getFullYear() + n, anchorDate.getMonth(), 1); break

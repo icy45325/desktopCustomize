@@ -14,7 +14,11 @@ Item {
     // 只需要 5 行时不显示第 6 行
     readonly property int rows: Cal.addDays(gridStart, 35).getMonth() === anchorDate.getMonth() ? 6 : 5
     readonly property var stableStart: Cal.parseIso(gridKey.split("/")[0])   // 同一个月内点选日期不触发 42 个格子重算
-    readonly property string gridKey: Cal.iso(gridStart) + "/" + rows
+    // 显示哪几列（隐藏周末时 5 列）；key 里带上列和回历设置，变化时才重建 / 重载
+    readonly property string colsKey: Cal.weekColumns(CalendarStore.weekStartsMonday, CalendarStore.showWeekends, CalendarStore.weekendDays).join(",")
+    readonly property var cols: colsKey.split(",").map(function (c) { return +c })
+    readonly property string gridKey: Cal.iso(gridStart) + "/" + rows + "/" + colsKey + "/" + (CalendarStore.showHijri ? CalendarStore.hijriAdjust : "x")
+    property var hijri: []                  // 整个 rows × 7 网格的回历日期（关闭时为空）
     property var items: []
     property string loadedKey: ""
     property int loadedRev: -1
@@ -22,6 +26,7 @@ Item {
         var from = Cal.iso(gridStart), to = Cal.iso(Cal.addDays(gridStart, rows * 7))
         var r = CalendarStore.occurrences(from, to)
         items = CalendarStore.showTodos ? r.concat(CalendarStore.todosInRange(from, to)) : r
+        hijri = CalendarStore.showHijri ? CalendarStore.hijriRange(from, rows * 7) : []
         loadedKey = gridKey
         loadedRev = CalendarStore.revision
     }
@@ -39,10 +44,10 @@ Item {
             Layout.fillWidth: true
             Layout.preferredHeight: 28
             Repeater {
-                model: Cal.weekdayLabels(CalendarStore.weekStartsMonday)
+                model: { var all = Cal.weekdayLabels(CalendarStore.weekStartsMonday); return mv.cols.map(function (c) { return all[c] }) }
                 Text {
                     required property string modelData
-                    width: mv.width / 7
+                    width: mv.width / mv.cols.length
                     height: 28
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
@@ -57,16 +62,18 @@ Item {
             id: grid
             Layout.fillWidth: true
             Layout.fillHeight: true
-            columns: 7
-            readonly property real cw: width / 7
+            columns: mv.cols.length
+            readonly property real cw: width / mv.cols.length
             readonly property real ch: height / mv.rows
 
             Repeater {
-                model: mv.rows * 7
+                model: mv.rows * mv.cols.length
                 Item {
                     id: cell
                     required property int index
-                    readonly property var date: Cal.addDays(mv.stableStart, index)
+                    // 第 row 行第 col 列 → 网格起点之后的第 row*7 + cols[col] 天
+                    readonly property int offset: Math.floor(index / mv.cols.length) * 7 + mv.cols[index % mv.cols.length]
+                    readonly property var date: Cal.addDays(mv.stableStart, offset)
                     readonly property string dayIso: Cal.iso(date)
                     readonly property bool inMonth: date.getMonth() === mv.anchorDate.getMonth()
                     readonly property bool isToday: Cal.isToday(date)
@@ -84,7 +91,7 @@ Item {
                              : (!cell.inMonth ? Theme.weekendBg : (cellMa.containsMouse ? Theme.hover : "transparent"))
                     }
                     Rectangle { width: parent.width; height: 1; color: Theme.gridLine }
-                    Rectangle { visible: index % 7 !== 0; width: 1; height: parent.height; color: Theme.gridLine }
+                    Rectangle { visible: index % mv.cols.length !== 0; width: 1; height: parent.height; color: Theme.gridLine }
 
                     MouseArea {
                         id: cellMa
@@ -107,9 +114,23 @@ Item {
                             text: cell.date.getDate() === 1 ? Cal.md(cell.date) : cell.date.getDate()
                             font.pixelSize: 12
                             font.bold: cell.isToday || cell.date.getDate() === 1
-                            color: cell.isToday ? Theme.accentText : (!cell.inMonth ? Theme.textTertiary : (Cal.isWeekend(cell.date) ? Theme.textSecondary : Theme.text))
+                            color: cell.isToday ? Theme.accentText : (!cell.inMonth ? Theme.textTertiary : (Cal.isWeekend(cell.date, CalendarStore.weekendDays) ? Theme.textSecondary : Theme.text))
                         }
                         MouseArea { id: numMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: mv.calendarView.showDay(cell.date) }
+                    }
+                    // 回历日期（右上角；回历每月 1 日带月份并用强调色）
+                    Text {
+                        readonly property var h: mv.hijri[cell.offset] || null   // 换月瞬间数组可能还是旧的长度
+                        visible: h !== null
+                        anchors.right: parent.right; anchors.rightMargin: 7
+                        y: 9
+                        width: Math.min(implicitWidth, parent.width - 40)
+                        elide: Text.ElideRight
+                        text: h ? h.label : ""
+                        font.pixelSize: 10
+                        font.bold: h !== null && h.first
+                        color: h && h.first ? Theme.accent : Theme.textTertiary
+                        opacity: cell.inMonth ? 1 : 0.6
                     }
 
                     Column {

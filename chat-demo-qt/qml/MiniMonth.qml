@@ -117,7 +117,7 @@ Item {
                         font.bold: dayCell.isToday || dayCell.isSel
                         color: dayCell.isToday ? Theme.accentText
                              : !dayCell.inMonth ? Theme.textTertiary
-                             : (Cal.isWeekend(dayCell.date) ? Theme.textSecondary : Theme.text)
+                             : (Cal.isWeekend(dayCell.date, CalendarStore.weekendDays) ? Theme.textSecondary : Theme.text)
                         opacity: dayCell.inMonth ? 1 : 0.55
                     }
                     Rectangle {

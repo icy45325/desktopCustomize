@@ -1,11 +1,14 @@
 #include "calendarstore.h"
 
 #include "appdata.h"
+#include "appsettings.h"
+#include "hijri.h"
 
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonArray>
+#include <QLocale>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QNetworkAccessManager>
@@ -40,7 +43,13 @@ CalendarStore *CalendarStore::create(QQmlEngine *, QJSEngine *)
 CalendarStore::CalendarStore()
 {
     m_net = new QNetworkAccessManager(this);
+    // 系统地区是阿联酋时，默认打开公共假日 / 伊斯兰节日 / 回历（其它地区默认关闭）
+    if (QLocale::system().territory() == QLocale::UnitedArabEmirates) {
+        m_showUae = m_showIslamic = m_showHijri = true;
+    }
     load();
+    rebuildBuiltins();
+    connect(AppSettings::instance(), &AppSettings::languageChanged, this, &CalendarStore::rebuildBuiltins);   // 节日名称随语言
     m_tick.setInterval(30 * 1000);
     connect(&m_tick, &QTimer::timeout, this, [this] {
         checkReminders();
@@ -69,6 +78,27 @@ void CalendarStore::setViewMode(const QString &v)
 void CalendarStore::setShowTodos(bool v) { if (m_showTodos != v) { m_showTodos = v; saveMeta(); emit showTodosChanged(); bump(); } }
 void CalendarStore::setShowCompleted(bool v) { if (m_showCompleted != v) { m_showCompleted = v; saveMeta(); emit showCompletedChanged(); bump(); } }
 void CalendarStore::setWeekStartsMonday(bool v) { if (m_weekStartsMonday != v) { m_weekStartsMonday = v; saveMeta(); emit weekStartsMondayChanged(); bump(); } }
+
+void CalendarStore::setShowWeekends(bool v) { if (m_showWeekends != v) { m_showWeekends = v; saveMeta(); emit showWeekendsChanged(); } }
+void CalendarStore::setWeekendDays(const QString &v)
+{
+    if (m_weekendDays == v || (v != QLatin1String("sat-sun") && v != QLatin1String("fri-sat"))) return;
+    m_weekendDays = v;
+    saveMeta();
+    emit weekendDaysChanged();
+}
+void CalendarStore::setShowUaeHolidays(bool v) { if (m_showUae != v) { m_showUae = v; saveMeta(); emit holidaysChanged(); rebuildBuiltins(); } }
+void CalendarStore::setShowIslamicHolidays(bool v) { if (m_showIslamic != v) { m_showIslamic = v; saveMeta(); emit holidaysChanged(); rebuildBuiltins(); } }
+void CalendarStore::setShowHijri(bool v) { if (m_showHijri != v) { m_showHijri = v; saveMeta(); emit hijriChanged(); } }
+void CalendarStore::setHijriAdjust(int v)
+{
+    v = qBound(-2, v, 2);
+    if (m_hijriAdjust == v) return;
+    m_hijriAdjust = v;
+    saveMeta();
+    emit hijriChanged();
+    rebuildBuiltins();   // 伊斯兰节日的公历日期随校正移动
+}
 
 void CalendarStore::bump() { ++m_revision; emit changed(); }
 void CalendarStore::bumpCalendars() { emit calendarsChanged(); bump(); }
@@ -137,6 +167,8 @@ QString CalendarStore::addCalendar(const QString &name, const QString &color)
 
 void CalendarStore::removeCalendar(const QString &id)
 {
+    if (id == QLatin1String("holiday-ae")) { setShowUaeHolidays(false); return; }
+    if (id == QLatin1String("islamic")) { setShowIslamicHolidays(false); return; }
     for (int i = 0; i < m_cals.size(); ++i)
         if (m_cals[i].id == id) {
             m_cals.removeAt(i);
@@ -149,7 +181,12 @@ void CalendarStore::removeCalendar(const QString &id)
 
 void CalendarStore::setCalendarVisible(const QString &id, bool visible)
 {
-    if (Cal *c = cal(id); c && c->visible != visible) { c->visible = visible; saveMeta(); bumpCalendars(); }
+    if (Cal *c = cal(id); c && c->visible != visible) {
+        c->visible = visible;
+        if (c->kind == QLatin1String("builtin")) m_builtinVisible[id] = visible;
+        saveMeta();
+        bumpCalendars();
+    }
 }
 void CalendarStore::setCalendarColor(const QString &id, const QString &color)
 {
@@ -304,7 +341,7 @@ QVariantMap CalendarStore::occurrenceMap(const Cal &c, const ical::Event &e, con
     if (last < start.date()) last = start.date();
     return {{"key", e.uid + QLatin1Char('|') + QString::number(start.toSecsSinceEpoch())},
             {"uid", e.uid}, {"type", "event"},
-            {"calendarId", c.id}, {"calendarName", c.name}, {"color", c.color},
+            {"calendarId", c.id}, {"calendarName", c.name}, {"calendarKind", c.kind}, {"color", c.color},
             {"title", e.title.isEmpty() ? tr("（无标题）") : e.title},
             {"location", e.location}, {"notes", e.notes}, {"url", e.url},
             {"allDay", e.allDay}, {"startMs", double(start.toMSecsSinceEpoch())}, {"endMs", double(end.toMSecsSinceEpoch())},
@@ -657,6 +694,136 @@ void CalendarStore::reveal(const QString &key)
     if (secs > 0) emit revealRequested(isoStr(QDateTime::fromSecsSinceEpoch(secs).date()));
 }
 
+// MARK: 回历与内置节假日日历
+
+namespace {
+bool isEnglish() { return AppSettings::instance()->language() == QLatin1String("en"); }
+const char *const kHijriEn[] = {"Muharram", "Safar", "Rabiʻ I", "Rabiʻ II", "Jumada I", "Jumada II",
+                                "Rajab", "Shaʻban", "Ramadan", "Shawwal", "Dhuʻl-Qiʻdah", "Dhuʻl-Hijjah"};
+const char *const kHijriEnShort[] = {"Muh.", "Saf.", "Rab. I", "Rab. II", "Jum. I", "Jum. II",
+                                     "Raj.", "Sha.", "Ram.", "Shaw.", "Dhu Q.", "Dhu H."};
+const char16_t *const kHijriZh[] = {u"穆哈兰姆月", u"色法尔月", u"赖比尔·敖外鲁月", u"赖比尔·阿色尼月", u"主马达·敖外鲁月", u"主马达·阿色尼月",
+                                    u"赖哲卜月", u"舍尔邦月", u"赖买丹月（斋月）", u"闪瓦鲁月", u"都尔喀尔德月", u"都尔黑哲月"};
+const char16_t *const kHijriZhShort[] = {u"穆哈兰姆", u"色法尔", u"赖比一", u"赖比二", u"主马一", u"主马二",
+                                         u"赖哲卜", u"舍尔邦", u"斋月", u"闪瓦鲁", u"都尔喀", u"都尔黑"};
+}  // namespace
+
+QVariantList CalendarStore::hijriRange(const QString &fromIso, int days) const
+{
+    QVariantList out;
+    QDate d = isoDate(fromIso);
+    const bool en = isEnglish();
+    for (int i = 0; i < days && d.isValid(); ++i, d = d.addDays(1)) {
+        const hijri::Date h = hijri::fromGregorian(d, m_hijriAdjust);
+        const QString monthShort = en ? QString::fromLatin1(kHijriEnShort[h.month - 1]) : QString::fromUtf16(kHijriZhShort[h.month - 1]);
+        // 格子里：每月 1 日显示「1 斋月」，其余只显示日数
+        const QString label = h.day == 1 ? QString::number(h.day) + QLatin1Char(' ') + monthShort : QString::number(h.day);
+        out << QVariantMap{{"y", h.year}, {"m", h.month}, {"d", h.day}, {"label", label}, {"monthShort", monthShort}, {"first", h.day == 1}};
+    }
+    return out;
+}
+
+QString CalendarStore::hijriText(const QString &iso) const
+{
+    const QDate d = isoDate(iso);
+    if (!d.isValid()) return {};
+    const hijri::Date h = hijri::fromGregorian(d, m_hijriAdjust);
+    if (isEnglish())
+        return QStringLiteral("%1 %2 %3 AH").arg(h.day).arg(QString::fromUtf8(kHijriEn[h.month - 1])).arg(h.year);
+    return QStringLiteral("回历 %1 年%2 %3 日").arg(h.year).arg(QString::fromUtf16(kHijriZh[h.month - 1])).arg(h.day);
+}
+
+QList<ical::Event> CalendarStore::uaeHolidays(int fromYear, int toYear) const
+{
+    QList<ical::Event> out;
+    auto add = [&](const QString &key, const QString &title, const QDate &d, int days, bool estimated) {
+        if (!d.isValid()) return;
+        ical::Event e;
+        e.uid = QStringLiteral("builtin-ae-%1-%2").arg(key, d.toString(Qt::ISODate));
+        e.title = title;
+        e.allDay = true;
+        e.start = QDateTime(d, QTime(0, 0));
+        e.end = QDateTime(d.addDays(days), QTime(0, 0));
+        e.notes = estimated ? tr("伊斯兰节日按回历推算，实际日期以阿联酋官方根据新月观测公布的为准（可在设置里调整 ±2 天）。")
+                            : tr("阿联酋联邦公共假日。");
+        out << e;
+    };
+    for (int y = fromYear; y <= toYear; ++y) {
+        add(QStringLiteral("newyear"), tr("元旦"), QDate(y, 1, 1), 1, false);
+        add(QStringLiteral("commemoration"), tr("纪念日"), QDate(y, 12, 1), 1, false);
+        add(QStringLiteral("national"), tr("国庆节"), QDate(y, 12, 2), 2, false);
+    }
+    // 伊斯兰节日：覆盖这几个公历年的所有回历年
+    const int hFrom = hijri::fromGregorian(QDate(fromYear, 1, 1), m_hijriAdjust).year;
+    const int hTo = hijri::fromGregorian(QDate(toYear, 12, 31), m_hijriAdjust).year;
+    const QDate lo(fromYear, 1, 1), hi(toYear, 12, 31);
+    for (int h = hFrom; h <= hTo; ++h) {
+        auto g = [&](int m, int d) { const QDate x = hijri::toGregorian(h, m, d, m_hijriAdjust); return x >= lo && x <= hi ? x : QDate(); };
+        add(QStringLiteral("hijri-newyear"), tr("伊斯兰新年"), g(1, 1), 1, true);
+        add(QStringLiteral("mawlid"), tr("先知诞辰"), g(3, 12), 1, true);
+        add(QStringLiteral("eid-fitr"), tr("开斋节"), g(10, 1), 3, true);
+        add(QStringLiteral("arafat"), tr("阿拉法特日"), g(12, 9), 1, true);
+        add(QStringLiteral("eid-adha"), tr("宰牲节"), g(12, 10), 3, true);
+    }
+    return out;
+}
+
+QList<ical::Event> CalendarStore::islamicHolidays(int fromYear, int toYear, bool skipUaeOverlap) const
+{
+    QList<ical::Event> out;
+    const QDate lo(fromYear, 1, 1), hi(toYear, 12, 31);
+    const int hFrom = hijri::fromGregorian(lo, m_hijriAdjust).year;
+    const int hTo = hijri::fromGregorian(hi, m_hijriAdjust).year;
+    for (int h = hFrom; h <= hTo; ++h) {
+        auto add = [&](const QString &key, const QString &title, int m, int d, int days) {
+            const QDate x = hijri::toGregorian(h, m, d, m_hijriAdjust);
+            if (x < lo || x > hi) return;
+            ical::Event e;
+            e.uid = QStringLiteral("builtin-islamic-%1-%2").arg(key).arg(h);
+            e.title = title;
+            e.allDay = true;
+            e.start = QDateTime(x, QTime(0, 0));
+            e.end = QDateTime(x.addDays(days), QTime(0, 0));
+            e.notes = tr("按回历推算，实际日期取决于新月观测（可在设置里调整 ±2 天）。");
+            out << e;
+        };
+        add(QStringLiteral("ashura"), tr("阿舒拉日"), 1, 10, 1);
+        add(QStringLiteral("isra"), tr("登霄节"), 7, 27, 1);
+        add(QStringLiteral("shaban"), tr("拜拉特夜"), 8, 15, 1);
+        add(QStringLiteral("ramadan"), tr("斋月开始"), 9, 1, 1);
+        add(QStringLiteral("qadr"), tr("盖德尔夜"), 9, 27, 1);
+        if (!skipUaeOverlap) {   // 阿联酋假日日历已包含这些，避免重复
+            add(QStringLiteral("newyear"), tr("伊斯兰新年"), 1, 1, 1);
+            add(QStringLiteral("mawlid"), tr("先知诞辰"), 3, 12, 1);
+            add(QStringLiteral("eid-fitr"), tr("开斋节"), 10, 1, 3);
+            add(QStringLiteral("arafat"), tr("阿拉法特日"), 12, 9, 1);
+            add(QStringLiteral("eid-adha"), tr("宰牲节"), 12, 10, 3);
+        }
+    }
+    return out;
+}
+
+void CalendarStore::rebuildBuiltins()
+{
+    m_cals.erase(std::remove_if(m_cals.begin(), m_cals.end(), [](const Cal &c) { return c.kind == QLatin1String("builtin"); }), m_cals.end());
+    const int y = QDate::currentDate().year();
+    auto make = [&](const QString &id, const QString &name, const QString &color, const QList<ical::Event> &events) {
+        Cal c;
+        c.id = id;
+        c.name = name;
+        c.color = color;
+        c.kind = QStringLiteral("builtin");
+        c.visible = m_builtinVisible.value(id, true);
+        c.events = events;
+        m_cals << c;
+    };
+    if (m_showUae)
+        make(QStringLiteral("holiday-ae"), tr("阿联酋公共假日"), QStringLiteral("#E0533D"), uaeHolidays(y - 1, y + 2));
+    if (m_showIslamic)
+        make(QStringLiteral("islamic"), tr("伊斯兰节日"), QStringLiteral("#14A37F"), islamicHolidays(y - 1, y + 2, m_showUae));
+    bumpCalendars();
+}
+
 // MARK: 持久化
 
 QString CalendarStore::calDir() const { return dataDir() + QStringLiteral("/calendar"); }
@@ -675,13 +842,20 @@ void CalendarStore::saveCalendar(const Cal &c)
 void CalendarStore::saveMeta()
 {
     QJsonArray cals;
+    QJsonObject builtinVis;
+    for (auto it = m_builtinVisible.constBegin(); it != m_builtinVisible.constEnd(); ++it) builtinVis[it.key()] = it.value();
     for (const Cal &c : std::as_const(m_cals))
+        if (c.kind != QLatin1String("builtin"))   // 内置日历每次启动按设置重新生成
         cals << QJsonObject{{"id", c.id}, {"name", c.name}, {"color", c.color}, {"kind", c.kind}, {"visible", c.visible},
                             {"url", c.url}, {"refreshMinutes", c.refreshMinutes},
                             {"lastSync", c.lastSync.toString(Qt::ISODate)}, {"lastError", c.lastError}};
     const QJsonObject root{{"calendars", cals},
                            {"settings", QJsonObject{{"viewMode", m_viewMode}, {"showTodos", m_showTodos},
-                                                    {"showCompleted", m_showCompleted}, {"weekStartsMonday", m_weekStartsMonday}}}};
+                                                    {"showCompleted", m_showCompleted}, {"weekStartsMonday", m_weekStartsMonday},
+                                                    {"showWeekends", m_showWeekends}, {"weekendDays", m_weekendDays},
+                                                    {"showUaeHolidays", m_showUae}, {"showIslamicHolidays", m_showIslamic},
+                                                    {"showHijri", m_showHijri}, {"hijriAdjust", m_hijriAdjust},
+                                                    {"builtinVisible", builtinVis}}}};
     QDir().mkpath(calDir());
     QSaveFile f(calDir() + QStringLiteral("/calendars.json"));
     if (f.open(QIODevice::WriteOnly)) {
@@ -703,6 +877,14 @@ void CalendarStore::load()
     m_showTodos = s["showTodos"].toBool(m_showTodos);
     m_showCompleted = s["showCompleted"].toBool(m_showCompleted);
     m_weekStartsMonday = s["weekStartsMonday"].toBool(m_weekStartsMonday);
+    m_showWeekends = s["showWeekends"].toBool(m_showWeekends);
+    m_weekendDays = s["weekendDays"].toString(m_weekendDays);
+    m_showUae = s["showUaeHolidays"].toBool(m_showUae);
+    m_showIslamic = s["showIslamicHolidays"].toBool(m_showIslamic);
+    m_showHijri = s["showHijri"].toBool(m_showHijri);
+    m_hijriAdjust = qBound(-2, s["hijriAdjust"].toInt(m_hijriAdjust), 2);
+    const QJsonObject bv = s["builtinVisible"].toObject();
+    for (auto it = bv.begin(); it != bv.end(); ++it) m_builtinVisible[it.key()] = it.value().toBool(true);
     for (const QJsonValue &v : root["calendars"].toArray()) {
         const QJsonObject o = v.toObject();
         Cal c;

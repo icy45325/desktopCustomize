@@ -15,6 +15,7 @@
 #include <functional>
 #include <QFile>
 #include <QGuiApplication>
+#include <QQmlProperty>
 #include <QQuickItem>
 #include <QQuickWindow>
 #include <QTimer>
@@ -517,6 +518,107 @@ void perfPhase()
     finish();
 }
 
+
+// MARK: 日历基础设置：周末、节假日、回历
+
+int countTitle(const QDate &d, const QString &t) { return int(titlesOn(d).count(t)); }
+
+void calendarSettingsTests()
+{
+    auto *wm = WindowManager::instance();
+    auto *cs = CalendarStore::instance();
+    const QString shot = qEnvironmentVariable("CHATDEMO_SHOT");
+    wm->setModule("calendar");
+    QQuickItem *cv = findItem(wm->mainWindow(), "calendarView");
+    auto viewItem = [&] { QQuickItem *h = findItem(wm->mainWindow(), "viewHost"); return h ? h->property("item").value<QQuickItem *>() : nullptr; };
+
+    // 周末：默认不显示
+    check(!cs->showWeekends() && cs->weekendDays() == "sat-sun", "weekend: 默认隐藏周末（周六、周日）");
+    cs->setViewMode("week");
+    wait(400);
+    check(viewItem() && viewItem()->property("colsKey").toString() == "0,1,2,3,4", "weekend: 周视图只显示周一～周五");
+    cs->setViewMode("month");
+    wait(400);
+    check(viewItem() && viewItem()->property("colsKey").toString() == "0,1,2,3,4", "weekend: 月视图 5 列");
+    cs->setShowWeekends(true);
+    wait(300);
+    check(viewItem() && viewItem()->property("colsKey").toString() == "0,1,2,3,4,5,6", "weekend: 打开后显示 7 列");
+    cs->setShowWeekends(false);
+    cs->setWeekendDays("fri-sat");
+    cs->setViewMode("week");
+    wait(400);
+    check(viewItem() && viewItem()->property("colsKey").toString() == "0,1,2,3,6", "weekend: 周末为周五、周六时隐藏这两天（周一起始）");
+    cs->setWeekendDays("sat-sun");
+    // 日视图翻页跳过周末
+    cs->setViewMode("day");
+    QQmlProperty::write(cv, "anchorDate", QDateTime(QDate(2026, 11, 27), QTime(0, 0)));   // 周五
+    QMetaObject::invokeMethod(cv, "step", Q_ARG(QVariant, 1));
+    check(cv->property("anchorDate").toDateTime().date() == QDate(2026, 11, 30), "weekend: 日视图从周五翻到下周一");
+    QMetaObject::invokeMethod(cv, "goToday");
+
+    // 回历
+    const QVariantMap h0 = cs->hijriRange("2026-02-18", 1).value(0).toMap();
+    check(h0["y"] == 1447 && h0["m"] == 9 && h0["d"] == 1 && h0["first"].toBool(), "hijri: 2026-02-18 = 回历 1447 年 9 月（斋月）1 日");
+    check(cs->hijriText("2026-02-18").contains("1447") && cs->hijriText("2026-02-18").contains(QStringLiteral("斋月")), "hijri: 中文回历日期文字");
+    cs->setHijriAdjust(1);
+    check(cs->hijriRange("2026-02-18", 1).value(0).toMap()["d"] == 2, "hijri: 调整 +1 天");
+    cs->setHijriAdjust(0);
+
+    // 阿联酋公共假日 + 伊斯兰节日（内置日历）
+    cs->setShowUaeHolidays(true);
+    bool hasAe = false;
+    for (const QVariant &v : cs->calendars()) hasAe |= v.toMap()["id"] == "holiday-ae" && v.toMap()["kind"] == "builtin" && v.toMap()["readOnly"].toBool();
+    check(hasAe, "holiday: 打开后出现只读的「阿联酋公共假日」日历");
+    check(countTitle(QDate(2026, 12, 2), QStringLiteral("国庆节")) == 1 && countTitle(QDate(2026, 12, 3), QStringLiteral("国庆节")) == 1
+              && countTitle(QDate(2026, 12, 1), QStringLiteral("纪念日")) == 1, "holiday: 国庆节 12/2–12/3、纪念日 12/1");
+    check(countTitle(QDate(2026, 3, 20), QStringLiteral("开斋节")) == 1 && countTitle(QDate(2026, 3, 22), QStringLiteral("开斋节")) == 1
+              && countTitle(QDate(2026, 5, 26), QStringLiteral("阿拉法特日")) == 1 && countTitle(QDate(2026, 5, 27), QStringLiteral("宰牲节")) == 1,
+          "holiday: 开斋节（3 天）/ 阿拉法特日 / 宰牲节按回历推算");
+    cs->setShowIslamicHolidays(true);
+    check(countTitle(QDate(2026, 2, 18), QStringLiteral("斋月开始")) == 1, "holiday: 伊斯兰节日：斋月开始");
+    check(countTitle(QDate(2026, 3, 20), QStringLiteral("开斋节")) == 1, "holiday: 两个日历都打开时开斋节不重复");
+    cs->setShowUaeHolidays(false);
+    check(countTitle(QDate(2026, 3, 20), QStringLiteral("开斋节")) == 1 && countTitle(QDate(2026, 12, 2), QStringLiteral("国庆节")) == 0,
+          "holiday: 只开伊斯兰节日时开斋节仍在、阿联酋国庆不在");
+    cs->setHijriAdjust(-1);
+    check(countTitle(QDate(2026, 3, 21), QStringLiteral("开斋节")) == 1 && countTitle(QDate(2026, 2, 19), QStringLiteral("斋月开始")) == 1,
+          "holiday: 回历调整同步移动伊斯兰节日");
+    cs->setHijriAdjust(0);
+    cs->setCalendarVisible("islamic", false);
+    check(countTitle(QDate(2026, 2, 18), QStringLiteral("斋月开始")) == 0, "holiday: 侧栏取消勾选后隐藏");
+    cs->setCalendarVisible("islamic", true);
+    {
+        QFile f(dataDir() + "/calendar/calendars.json");
+        f.open(QIODevice::ReadOnly);
+        const QByteArray j = f.readAll();
+        check(!j.contains("\"id\": \"islamic\"") && j.contains("\"showIslamicHolidays\": true"), "holiday: 内置日历不写入日历列表，只保存开关");
+    }
+
+    // 截图：月视图（隐藏周末 + 回历 + 节假日）、周视图、设置的日历页
+    cs->setShowUaeHolidays(true);
+    cs->setShowHijri(true);
+    if (!shot.isEmpty()) {
+        cs->setViewMode("month");
+        QQmlProperty::write(cv, "anchorDate", QDateTime(QDate(2026, 12, 1), QTime(0, 0)));
+        wait(600);
+        wm->mainWindow()->grabWindow().save(shot + ".calendar.month-holidays.light.png");
+        cs->setViewMode("week");
+        wait(600);
+        wm->mainWindow()->grabWindow().save(shot + ".calendar.week-hijri.light.png");
+        wm->openSettings("calendar");
+        wait(500);
+        wm->mainWindow()->grabWindow().save(shot + ".settings.calendar.light.png");
+        if (QObject *dlg = wm->mainWindow()->findChild<QObject *>("settingsDialog")) QMetaObject::invokeMethod(dlg, "close");
+        QMetaObject::invokeMethod(cv, "goToday");
+    }
+    cs->setShowHijri(false);
+    cs->setShowUaeHolidays(false);
+    cs->removeCalendar("islamic");
+    check(!cs->showIslamicHolidays(), "holiday: 侧栏「移除」= 关掉设置开关");
+    cs->setViewMode("week");
+    wait(300);
+}
+
 void calendarPhase()
 {
     auto *wm = WindowManager::instance();
@@ -639,6 +741,7 @@ void calendarPhase()
     check(todoPanel && todoPanel->isVisible(), "UI: 动态面板默认显示待办");
     panelTests();
     settingsTests();
+    calendarSettingsTests();
     if (!shot.isEmpty()) {   // 面板各标签截图（日历模块）
         wm->setModule("calendar");
         for (const char *t : {"meetings", "assistant", "chat"}) {
